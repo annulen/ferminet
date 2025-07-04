@@ -300,6 +300,7 @@ def default() -> ml_collections.ConfigDict:
           'density': False,  # density matrix
           'density_basis': 'def2-tzvpd',  # basis used for DM calculation
           'dipole': False,  # dipole moment
+          'wfn_at_center': False,  # wavefunction at (0,0,0) point
       },
       'debug': {
           # Check optimizer state, parameters and loss and raise an exception if

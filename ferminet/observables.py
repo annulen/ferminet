@@ -405,3 +405,16 @@ def make_density_matrix(
         scf_approx)
 
   return density_state, density_update, density_estimator
+
+
+def make_wfn_at_center(
+    signed_network: networks.FermiNetLike,
+) -> Observable:
+  def wfn_at_center_estimator(
+      params: networks.ParamTree,
+      data: networks.FermiNetData,
+      state: None = None,
+  ) -> jnp.ndarray:
+    return 0
+
+  return wfn_at_center_estimator

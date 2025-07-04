@@ -659,6 +659,11 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
     if cfg.system.states:
       dipole_matrix_file = open(
           os.path.join(ckpt_save_path, 'dipole_matrix.npy'), 'ab')
+  if cfg.observables.wfn_at_center:
+    observable_fns['wfn_at_center'] = observables.make_wfn_at_center(
+        signed_network)
+    observable_states['wfn_at_center'] = None
+    train_schema += ['wfn_at_center']
   # Do this *before* creating density matrix function, as that is a special case
   observable_fns = observables.make_observable_fns(observable_fns)
 
@@ -1038,6 +1043,11 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
             writer_kwargs[key] = obs_data
             logging_str += ', <S^2>=%03.4f'
             logging_args += obs_data,
+          elif key == 'wfn_at_center':
+            writer_kwargs[key] = obs_data
+            logging_str += ', <W0>=%03.4f'
+            logging_args += obs_data,
+
         logging.info(logging_str, *logging_args)
         writer.write(t, **writer_kwargs)
 
