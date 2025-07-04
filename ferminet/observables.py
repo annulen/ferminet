@@ -415,6 +415,12 @@ def make_wfn_at_center(
       data: networks.FermiNetData,
       state: None = None,
   ) -> jnp.ndarray:
-    return 0
+      positions = jnp.zeros(3)
+#      positions = jnp.copy(data.positions)
+#      jax.debug.print("positions: {}", positions)
+#      positions.at[0, :].set(jnp.zeros_like(positions[0, :]))
+      _, log_psi = signed_network(params, positions, data.spins,
+                                         data.atoms, data.charges)
+      return jnp.exp(log_psi) ** 2
 
   return wfn_at_center_estimator
