@@ -410,17 +410,24 @@ def make_density_matrix(
 def make_wfn_at_center(
     signed_network: networks.FermiNetLike,
 ) -> Observable:
+  positions_list = []
+  for i in range(10):
+    positions_list.append((0.2 * i, 0, 0))
+  print(f"{positions_list = }")
+  positions = jnp.array(positions_list)
+
   def wfn_at_center_estimator(
       params: networks.ParamTree,
       data: networks.FermiNetData,
       state: None = None,
   ) -> jnp.ndarray:
-      positions = jnp.zeros(3)
-#      positions = jnp.copy(data.positions)
-#      jax.debug.print("positions: {}", positions)
-#      positions.at[0, :].set(jnp.zeros_like(positions[0, :]))
-      _, log_psi = signed_network(params, positions, data.spins,
-                                         data.atoms, data.charges)
-      return jnp.exp(log_psi) ** 2
+      # positions = jnp.zeros(3)
+      result = jnp.one  .empty(10)
+      for i, pos in enumerate(positions):
+        _, log_psi = signed_network(params, pos, data.spins,
+                                    data.atoms, data.charges)
+        result.at[i].set(jnp.exp(log_psi) ** 2)
+
+      return result
 
   return wfn_at_center_estimator
