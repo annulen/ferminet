@@ -1045,8 +1045,8 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
             logging_args += obs_data,
           elif key == 'wfn_at_center':
             writer_kwargs[key] = obs_data
-            logging_str += ', <W0>=%03.4f'
-            logging_args += obs_data,
+            logging_str += ', <W0>=' + '%03.4f,' * 10,
+            logging_args += *obs_data,
 
         logging.info(logging_str, *logging_args)
         writer.write(t, **writer_kwargs)
