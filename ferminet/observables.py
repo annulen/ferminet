@@ -391,7 +391,7 @@ def make_density_matrix(
       data: networks.FermiNetData,
       state: DensityState,
   ) -> jnp.ndarray:
-    return density.get_rho(
+    return density.get_rho_2(
         batch_signed_net,
         params,
         cfg.system.ndim,
@@ -422,12 +422,37 @@ def make_wfn_at_center(
       state: None = None,
   ) -> jnp.ndarray:
       # positions = jnp.zeros(3)
-      result = jnp.one  .empty(10)
+      result = jnp.empty(10)
       for i, pos in enumerate(positions):
         _, log_psi = signed_network(params, pos, data.spins,
                                     data.atoms, data.charges)
-        result.at[i].set(jnp.exp(log_psi) ** 2)
+        result = result.at[i].set(jnp.exp(log_psi) ** 2)
 
       return result
 
   return wfn_at_center_estimator
+
+
+def make_spin_rho(
+    signed_network: networks.FermiNetLike,
+    cfg: ml_collections.ConfigDict,
+) -> Observable:
+  batch_signed_net = jax.vmap(
+      signed_network, in_axes=(None, 0, 0, 0, 0), out_axes=0,)
+
+  def spin_rho_estimator(
+      params: networks.ParamTree,
+      data: networks.FermiNetData,
+      state: None = None,
+  ) -> jnp.ndarray:
+    return density.get_rho_2(
+        batch_signed_net,
+        params,
+        cfg.system.ndim,
+        data.positions,
+        data.spins,
+        data.charges,
+        cfg.system.electrons,
+        data.atoms)
+
+  return spin_rho_estimator

@@ -299,3 +299,54 @@ def get_rho(
     rho_mats.append(rho_mat)
 
   return jnp.stack(rho_mats)
+
+
+def get_rho_2(
+    batch_network: networks.FermiNetLike,
+    params: networks.ParamTree,
+    dim: int,
+    pos: jnp.ndarray,
+    spins: jnp.ndarray,
+    charges: jnp.ndarray,
+    nspins: Tuple[int, int],
+    batch_atoms: jnp.ndarray,
+) -> jnp.ndarray:
+  if dim != 3:
+    raise ValueError('Only implemented for 3D systems')
+
+  # Treat spins separately by default
+  # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  # rhos = []
+
+  _, denom_logs = batch_network(
+      params,
+      pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+
+  # for spin, i in enumerate(idx):
+  # sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+  i = 0
+  sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+  _, numer_logs = batch_network(
+      params,
+      sampled_pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+  frac = jnp.exp(2 * (numer_logs - denom_logs))
+  numer_value = jnp.mean(jnp.exp(2 * numer_logs), axis=0)
+  denom_value = jnp.mean(jnp.exp(2 * denom_logs), axis=0)
+  # rho = jnp.mean(frac, axis=0) * nspins[spin] * (2 // len(idx))
+  spin_rho = jnp.mean(frac, axis=0) * nspins[0] * 2
+  # rhos.append(rho)
+
+  #if nspins[1] > 0:
+  #  spin_rho = jnp.abs(rhos[0] - rhos[1])
+  #else:
+  #  spin_rho = rhos[0]
+
+  return jnp.array([numer_value, denom_value, spin_rho])

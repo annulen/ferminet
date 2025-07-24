@@ -687,6 +687,15 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
                              in_axes=(0, 0, pmap_density_axes))
     observable_fns['density'] = lambda *a, **kw: pmap_fn(*a, **kw).mean(0)
 
+  if cfg.observables.spin_rho:
+    observable_states['spin_rho'] = None
+    train_schema += ['spin_rho']
+    observable_fns['spin_rho'] = observables.make_spin_rho(
+         signed_network, cfg)
+    pmap_fn = constants.pmap(observable_fns['spin_rho'],
+                             in_axes=(0, 0, None))
+    observable_fns['spin_rho'] = lambda *a, **kw: pmap_fn(*a, **kw).mean(0)
+
   # Initialisation done. We now want to have different PRNG streams on each
   # device. Shard the key over devices
   sharded_key = kfac_jax.utils.make_different_rng_key_on_all_devices(key)
@@ -1046,6 +1055,10 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
           elif key == 'wfn_at_center':
             writer_kwargs[key] = obs_data
             logging_str += ', <W0>=' + '%03.4f,' * 10,
+            logging_args += *obs_data,
+          elif key == 'spin_rho':
+            writer_kwargs[key] = obs_data
+            logging_str += ', <S_rho>=' + '%03.4f,' * 3
             logging_args += *obs_data,
 
         logging.info(logging_str, *logging_args)
