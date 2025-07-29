@@ -351,9 +351,12 @@ def get_rho_2(
   # FIXME
   r_ae = r_ae.reshape(-1)
 
-  denom_norms = jnp.pi / jnp.exp(-2 * r_ae)
+  def analytical_1s(r_ae):
+    return jnp.exp(-2 * r_ae) / jnp.pi
+
+  denom_norms = analytical_1s(r_ae)
   # denom_value = jnp.mean(jnp.multiply(jnp.exp(2 * denom_logs), denom_norms), axis=0)
-  denom_value = jnp.mean(jnp.exp(2 * denom_logs) * denom_norms, axis=0)
+  denom_value = jnp.mean(jnp.exp(2 * denom_logs) / denom_norms, axis=0)
 
   spin_rho = numer_value / denom_value
 
