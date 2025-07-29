@@ -345,7 +345,6 @@ def get_rho_2(
   # _, _, r_ae, _ = networks.construct_input_features(pos, batch_atoms.reshape(-1, dim), ndim=dim)
 
   vmap_features = jax.vmap(networks.construct_input_features, (0, 0))
-  # positions = jnp.reshape(data.positions, [states, -1])
   _, _, r_ae, _ = vmap_features(pos, batch_atoms)
 
   # FIXME
@@ -365,9 +364,4 @@ def get_rho_2(
   #else:
   #  spin_rho = rhos[0]
 
-  #return jnp.array([numer_value.shape, denom_value.shape])  #, spin_rho.shape])
-  # return f"{pos.shape = } ; {batch_atoms.shape = } ; {r_ae.shape = } ; {numer_value.shape = } ; {denom_logs.shape = } ; {denom_norms.shape = } ; {denom_value.shape = }"
-  return jnp.array([numer_value, denom_value, spin_rho])
-
-# pos.shape = (64, 3) ; batch_atoms.shape = (64, 1, 3) ; r_ae.shape = (64, 64, 1) ; numer_value.shape = () ;
-# denom_logs.shape = (64,) ; denom_norms.shape = (64, 64, 1) ; denom_value.shape = (64, 64)
+  return spin_rho
