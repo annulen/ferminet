@@ -391,7 +391,7 @@ def make_density_matrix(
       data: networks.FermiNetData,
       state: DensityState,
   ) -> jnp.ndarray:
-    return density.get_rho_2(
+    return density.get_rho(
         batch_signed_net,
         params,
         cfg.system.ndim,
