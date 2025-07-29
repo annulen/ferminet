@@ -21,6 +21,7 @@ from ferminet import constants
 from ferminet import mcmc
 from ferminet import networks
 from ferminet.utils import scf
+import jax
 from jax import numpy as jnp
 
 
@@ -337,16 +338,33 @@ def get_rho_2(
       batch_atoms,
       charges,
   )
-  frac = jnp.exp(2 * (numer_logs - denom_logs))
   numer_value = jnp.mean(jnp.exp(2 * numer_logs), axis=0)
-  denom_value = jnp.mean(jnp.exp(2 * denom_logs), axis=0)
-  # rho = jnp.mean(frac, axis=0) * nspins[spin] * (2 // len(idx))
-  spin_rho = jnp.mean(frac, axis=0) * nspins[0] * 2
-  # rhos.append(rho)
+
+  # r_ae: Shape (nelectrons, natoms). r_ae[i, j] gives the distance between
+  #   electron i and atom j.
+  # _, _, r_ae, _ = networks.construct_input_features(pos, batch_atoms.reshape(-1, dim), ndim=dim)
+
+  vmap_features = jax.vmap(networks.construct_input_features, (0, 0))
+  # positions = jnp.reshape(data.positions, [states, -1])
+  _, _, r_ae, _ = vmap_features(pos, batch_atoms)
+
+  # FIXME
+  r_ae = r_ae.reshape(-1)
+
+  denom_norms = jnp.pi / jnp.exp(-2 * r_ae)
+  # denom_value = jnp.mean(jnp.multiply(jnp.exp(2 * denom_logs), denom_norms), axis=0)
+  denom_value = jnp.mean(jnp.exp(2 * denom_logs) * denom_norms, axis=0)
+
+  spin_rho = numer_value / denom_value
 
   #if nspins[1] > 0:
   #  spin_rho = jnp.abs(rhos[0] - rhos[1])
   #else:
   #  spin_rho = rhos[0]
 
+  #return jnp.array([numer_value.shape, denom_value.shape])  #, spin_rho.shape])
+  # return f"{pos.shape = } ; {batch_atoms.shape = } ; {r_ae.shape = } ; {numer_value.shape = } ; {denom_logs.shape = } ; {denom_norms.shape = } ; {denom_value.shape = }"
   return jnp.array([numer_value, denom_value, spin_rho])
+
+# pos.shape = (64, 3) ; batch_atoms.shape = (64, 1, 3) ; r_ae.shape = (64, 64, 1) ; numer_value.shape = () ;
+# denom_logs.shape = (64,) ; denom_norms.shape = (64, 64, 1) ; denom_value.shape = (64, 64)
