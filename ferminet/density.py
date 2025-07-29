@@ -331,16 +331,14 @@ def get_rho_2(
   # for spin, i in enumerate(idx):
   # sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
   i = 0
-  sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+  zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
   _, numer_logs = batch_network(
       params,
-      sampled_pos,
+      zeroed_pos,
       spins,
       batch_atoms,
       charges,
   )
-  numer_value = jnp.mean(jnp.exp(2 * numer_logs), axis=0)
-
   def analytical_1s_density(pos):
    # r_ae: Shape (nelectrons, natoms). r_ae[i, j] gives the distance between
    #   electron i and atom j.
@@ -359,6 +357,7 @@ def get_rho_2(
         pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
     return occ_mos[:, 0] ** 2
 
+  numer_value = jnp.mean(jnp.exp(2 * numer_logs), axis=0)
   denom_norms = hf_hydrogen_density(pos)
 
   # denom_value = jnp.mean(jnp.multiply(jnp.exp(2 * denom_logs), denom_norms), axis=0)
