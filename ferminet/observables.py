@@ -439,6 +439,12 @@ def make_spin_rho(
 ) -> Observable:
   batch_signed_net = jax.vmap(
       signed_network, in_axes=(None, 0, 0, 0, 0), out_axes=0,)
+  scf_approx = scf.Scf(
+      molecule=cfg.system.molecule,
+      restricted=False,  # compute dm for both spins
+      nelectrons=cfg.system.electrons,
+      basis=cfg.observables.density_basis)
+  scf_approx.run()
 
   def spin_rho_estimator(
       params: networks.ParamTree,
@@ -453,6 +459,7 @@ def make_spin_rho(
         data.spins,
         data.charges,
         cfg.system.electrons,
-        data.atoms)
+        data.atoms,
+        scf_approx)
 
   return spin_rho_estimator

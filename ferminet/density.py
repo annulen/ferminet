@@ -311,6 +311,7 @@ def get_rho_2(
     charges: jnp.ndarray,
     nspins: Tuple[int, int],
     batch_atoms: jnp.ndarray,
+    scf_approx: scf.Scf,
 ) -> jnp.ndarray:
   if dim != 3:
     raise ValueError('Only implemented for 3D systems')
@@ -340,20 +341,26 @@ def get_rho_2(
   )
   numer_value = jnp.mean(jnp.exp(2 * numer_logs), axis=0)
 
-  # r_ae: Shape (nelectrons, natoms). r_ae[i, j] gives the distance between
-  #   electron i and atom j.
-  # _, _, r_ae, _ = networks.construct_input_features(pos, batch_atoms.reshape(-1, dim), ndim=dim)
+  def analytical_1s_density(pos):
+   # r_ae: Shape (nelectrons, natoms). r_ae[i, j] gives the distance between
+   #   electron i and atom j.
+   # _, _, r_ae, _ = networks.construct_input_features(pos, batch_atoms.reshape(-1, dim), ndim=dim)
 
-  vmap_features = jax.vmap(networks.construct_input_features, (0, 0))
-  _, _, r_ae, _ = vmap_features(pos, batch_atoms)
+   vmap_features = jax.vmap(networks.construct_input_features, (0, 0))
+   _, _, r_ae, _ = vmap_features(pos, batch_atoms)
 
-  # FIXME
-  r_ae = r_ae.reshape(-1)
+   # FIXME
+   r_ae = r_ae.reshape(-1)
+   return jnp.exp(-2 * r_ae) / jnp.pi
 
-  def analytical_1s(r_ae):
-    return jnp.exp(-2 * r_ae) / jnp.pi
 
-  denom_norms = analytical_1s(r_ae)
+  def hf_hydrogen_density(pos):
+    _, occ_mos = _eval_mos(
+        pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
+    return occ_mos[:, 0] ** 2
+
+  denom_norms = analytical_1s_density(pos)
+
   # denom_value = jnp.mean(jnp.multiply(jnp.exp(2 * denom_logs), denom_norms), axis=0)
   denom_value = jnp.mean(jnp.exp(2 * denom_logs) / denom_norms, axis=0)
 
@@ -364,4 +371,5 @@ def get_rho_2(
   #else:
   #  spin_rho = rhos[0]
 
+  # return f"{occ_mos.shape = }"
   return spin_rho
