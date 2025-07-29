@@ -359,7 +359,7 @@ def get_rho_2(
         pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
     return occ_mos[:, 0] ** 2
 
-  denom_norms = analytical_1s_density(pos)
+  denom_norms = hf_hydrogen_density(pos)
 
   # denom_value = jnp.mean(jnp.multiply(jnp.exp(2 * denom_logs), denom_norms), axis=0)
   denom_value = jnp.mean(jnp.exp(2 * denom_logs) / denom_norms, axis=0)
