@@ -320,7 +320,7 @@ def get_rho_2(
   # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
   # rhos = []
 
-  _, denom_logs = batch_network(
+  _, psi_full_logs = batch_network(
       params,
       pos,
       spins,
@@ -332,7 +332,7 @@ def get_rho_2(
   # sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
   i = 0
   zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
-  _, numer_logs = batch_network(
+  _, psi_zero_logs = batch_network(
       params,
       zeroed_pos,
       spins,
@@ -357,13 +357,16 @@ def get_rho_2(
         pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
     return occ_mos[:, 0] ** 2
 
-  numer_value = jnp.mean(jnp.exp(2 * numer_logs), axis=0)
-  denom_norms = hf_hydrogen_density(pos)
 
-  # denom_value = jnp.mean(jnp.multiply(jnp.exp(2 * denom_logs), denom_norms), axis=0)
-  denom_value = jnp.mean(jnp.exp(2 * denom_logs) / denom_norms, axis=0)
 
-  spin_rho = numer_value / denom_value
+  numer_value = jnp.mean(jnp.exp(2 * psi_zero_logs), axis=0)
+
+  def phi_log(p):
+    _, phi_log = scf_approx.eval_slater(p, nspins)
+    return phi_log
+
+  denom_value_2 = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos))), axis=0)
+  spin_rho = numer_value / denom_value_2
 
   #if nspins[1] > 0:
   #  spin_rho = jnp.abs(rhos[0] - rhos[1])
@@ -371,4 +374,4 @@ def get_rho_2(
   #  spin_rho = rhos[0]
 
   # return f"{occ_mos.shape = }"
-  return spin_rho
+  return jnp.array([spin_rho])
