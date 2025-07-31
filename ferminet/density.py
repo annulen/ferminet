@@ -365,8 +365,18 @@ def get_rho_2(
     _, phi_log = scf_approx.eval_slater(p, nspins)
     return phi_log
 
-  denom_value_2 = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos))), axis=0)
-  spin_rho = numer_value / denom_value_2
+  # return f">>> {pos.shape = }, {psi_full_logs.shape = }"
+  probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
+  probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
+  probs *= (nspins[0] + nspins[1])
+  # return f">>> {pos.shape = }, {probs.shape = }, {probs2.shape = }, {psi_full_logs.shape = }"
+
+  # numer_value_2 = jnp.mean(jnp.exp(2 * (psi_zero_logs - phi_log(zeroed_pos))), axis=0)
+  # numer_value_2 = jnp.mean(jnp.exp(2 * (psi_zero_logs - phi_log(pos))), axis=0)
+  denom_value = jnp.mean(jnp.exp(2 * psi_full_logs) / probs, axis=0)
+
+
+  spin_rho = numer_value / denom_value
 
   #if nspins[1] > 0:
   #  spin_rho = jnp.abs(rhos[0] - rhos[1])
@@ -374,4 +384,8 @@ def get_rho_2(
   #  spin_rho = rhos[0]
 
   # return f"{occ_mos.shape = }"
-  return jnp.array([spin_rho])
+  # results = diagonal_elements_of_density_matrix(dim, pos, nspins, scf_approx)
+  # return f"{len(results) = }, {results[0].shape = }"
+  # return jnp.array([numer_value, numer_value_2, denom_value, denom_value_2, spin_rho])
+  # return jnp.array([spin_rho])
+  return jnp.array([numer_value, denom_value, spin_rho])
