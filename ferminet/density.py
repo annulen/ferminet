@@ -316,29 +316,6 @@ def get_rho_2(
   if dim != 3:
     raise ValueError('Only implemented for 3D systems')
 
-  # Treat spins separately by default
-  # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
-  # rhos = []
-
-  _, psi_full_logs = batch_network(
-      params,
-      pos,
-      spins,
-      batch_atoms,
-      charges,
-  )
-
-  # for spin, i in enumerate(idx):
-  # sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
-  i = 0
-  zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
-  _, psi_zero_logs = batch_network(
-      params,
-      zeroed_pos,
-      spins,
-      batch_atoms,
-      charges,
-  )
   def analytical_1s_density(pos):
    # r_ae: Shape (nelectrons, natoms). r_ae[i, j] gives the distance between
    #   electron i and atom j.
@@ -351,18 +328,36 @@ def get_rho_2(
    r_ae = r_ae.reshape(-1)
    return jnp.exp(-2 * r_ae) / jnp.pi
 
-
   def hf_hydrogen_density(pos):
     _, occ_mos = _eval_mos(
         pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
     return occ_mos[:, 0] ** 2
 
-
-
-
   def phi_log(p):
     _, phi_log = scf_approx.eval_slater(p, nspins)
     return phi_log
+
+  _, psi_full_logs = batch_network(
+      params,
+      pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+
+  # Treat spins separately by default
+  # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  # for spin, i in enumerate(idx):
+  # sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+  i = 0
+  zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+  _, psi_zero_logs = batch_network(
+      params,
+      zeroed_pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
 
   # return f">>> {pos.shape = }, {psi_full_logs.shape = }"
   probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
