@@ -359,7 +359,6 @@ def get_rho_2(
 
 
 
-  numer_value = jnp.mean(jnp.exp(2 * psi_zero_logs), axis=0)
 
   def phi_log(p):
     _, phi_log = scf_approx.eval_slater(p, nspins)
@@ -367,15 +366,14 @@ def get_rho_2(
 
   # return f">>> {pos.shape = }, {psi_full_logs.shape = }"
   probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
-  probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
-  probs *= (nspins[0] + nspins[1])
-  # return f">>> {pos.shape = }, {probs.shape = }, {probs2.shape = }, {psi_full_logs.shape = }"
+  # For He only:
+  probs = probs.reshape(-1, 2)[:, 1]
+  # probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
+  # probs *= (nspins[0] + nspins[1])
 
-  # numer_value_2 = jnp.mean(jnp.exp(2 * (psi_zero_logs - phi_log(zeroed_pos))), axis=0)
-  # numer_value_2 = jnp.mean(jnp.exp(2 * (psi_zero_logs - phi_log(pos))), axis=0)
-  denom_value = jnp.mean(jnp.exp(2 * psi_full_logs) / probs, axis=0)
-
-
+  numer_value = jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0)
+  # denom_value = jnp.mean(jnp.exp(2 * psi_full_logs) / probs, axis=0)
+  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos))), axis=0)
   spin_rho = numer_value / denom_value
 
   #if nspins[1] > 0:

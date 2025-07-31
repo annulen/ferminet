@@ -1058,8 +1058,9 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
             logging_args += *obs_data,
           elif key == 'spin_rho':
             writer_kwargs[key] = obs_data
-            logging_str += ', <S_rho>=' + '%03.4f,' * 1
-            logging_args += *obs_data,
+            obs_data_list = obs_data.reshape(-1)
+            logging_str += ', <S_rho>=' + '%03.4f,' * obs_data_list.shape[0]
+            logging_args += *obs_data_list,
 
         logging.info(logging_str, *logging_args)
         writer.write(t, **writer_kwargs)
