@@ -344,32 +344,33 @@ def get_rho_2(
       batch_atoms,
       charges,
   )
+  numer_value = jnp.zeros(2)
 
   # Treat spins separately by default
-  # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
-  # for spin, i in enumerate(idx):
-  # sampled_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
-  i = 0
-  zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
-  _, psi_zero_logs = batch_network(
-      params,
-      zeroed_pos,
-      spins,
-      batch_atoms,
-      charges,
-  )
+  idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  # idx = (0,)
+  # return f"{nspins[0] = }, {nspins[1] = }, {len(idx) = }"
+  for spin, i in enumerate(idx):
+    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+    _, psi_zero_logs = batch_network(
+        params,
+        zeroed_pos,
+        spins,
+        batch_atoms,
+        charges,
+    )
 
-  # return f">>> {pos.shape = }, {psi_full_logs.shape = }"
-  probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
-  # For He only:
-  probs = probs.reshape(-1, 2)[:, 1]
-  # probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
-  # probs *= (nspins[0] + nspins[1])
+    probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
+    # For He only:
+    probs = probs.reshape(-1, 2)[:, 1 - i]
+    # probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
+    # probs *= (nspins[0] + nspins[1])
 
-  numer_value = jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0)
+    numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+
   # denom_value = jnp.mean(jnp.exp(2 * psi_full_logs) / probs, axis=0)
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos))), axis=0)
-  spin_rho = numer_value / denom_value
+  spin_rho = jnp.sum(numer_value) / denom_value
 
   #if nspins[1] > 0:
   #  spin_rho = jnp.abs(rhos[0] - rhos[1])
@@ -381,4 +382,5 @@ def get_rho_2(
   # return f"{len(results) = }, {results[0].shape = }"
   # return jnp.array([numer_value, numer_value_2, denom_value, denom_value_2, spin_rho])
   # return jnp.array([spin_rho])
-  return jnp.array([numer_value, denom_value, spin_rho])
+
+  return jnp.array([numer_value[0], numer_value[1], jnp.sum(numer_value), denom_value, spin_rho])
