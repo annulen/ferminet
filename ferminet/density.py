@@ -366,7 +366,12 @@ def get_rho_2(
     # probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
     # probs *= (nspins[0] + nspins[1])
 
-    numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+    numer_value = numer_value.at[spin].set(
+      jnp.mean(
+          jnp.exp(2 * psi_zero_logs) / probs,
+          axis=0
+        )
+      )
 
   # denom_value = jnp.mean(jnp.exp(2 * psi_full_logs) / probs, axis=0)
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos))), axis=0)
