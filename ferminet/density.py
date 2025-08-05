@@ -360,17 +360,37 @@ def get_rho_2(
         charges,
     )
 
-    probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
-    # For He only:
-    probs = probs.reshape(-1, 2)[:, 1 - i]
-    # probs = probs.reshape(-1, nspins[0] + nspins[1]).sum(-1)
-    # probs *= (nspins[0] + nspins[1])
+    def mean_r(q_left, q_right, R):
+      batch_size = R.shape[0]
+      Q_left = jnp.tile(q_left, (batch_size, 1))
+      Q_right = jnp.tile(q_right, (batch_size, 1))
+      M = jnp.hstack((Q_left, R, Q_right))
+      rho_r = calc_hf_prob(pos=R, scf_approx=scf_approx, nspins=nspins)
+      # return f"{pos.shape = }, {rho_r.shape = }, {Q_left.shape = }, {Q_right.shape = }, {R.shape = }, {M.shape = }"
+      return jnp.mean(
+        jnp.exp(2 * phi_log(M)) / rho_r,
+        axis=0
+      )
+
+    def mean_q():
+      # FIXME: i==0
+      # jnp.hsplit(pos, (dim*i, dim*(i+1)))
+      split_res = jnp.hsplit(pos, (0, dim))
+      Q_left = split_res[0]
+      R = split_res[1]
+      Q_right = split_res[2]
+      # return f"{Q_left.shape = }, {Q_right.shape = }, {R.shape = }"
+      return jnp.mean(
+        jnp.exp(2 * psi_zero_logs) / jax.vmap(mean_r, in_axes=(0, 0, None))(Q_left, Q_right, R),
+        axis=0
+      )
 
     numer_value = numer_value.at[spin].set(
-      jnp.mean(
-          jnp.exp(2 * psi_zero_logs) / probs,
-          axis=0
-        )
+        mean_q()
+    #   jnp.mean(
+    #       jnp.exp(2 * psi_zero_logs) / rho_r,
+    #       axis=0
+    #     )
       )
 
   # denom_value = jnp.mean(jnp.exp(2 * psi_full_logs) / probs, axis=0)
