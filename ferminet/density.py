@@ -409,3 +409,74 @@ def get_rho_2(
   # return jnp.array([spin_rho])
 
   return jnp.array([numer_value[0], numer_value[1], jnp.sum(numer_value), denom_value, spin_rho])
+
+
+def phi_log(positions: jnp.ndarray, scf_approx: scf.Scf, nspins: Tuple[int, int]):
+  _, phi_log = scf_approx.eval_slater(positions, nspins)
+  return phi_log
+
+
+def get_rho_3(
+    batch_network: networks.FermiNetLike,
+    params: networks.ParamTree,
+    dim: int,
+    pos: jnp.ndarray,
+    spins: jnp.ndarray,
+    charges: jnp.ndarray,
+    nspins: Tuple[int, int],
+    batch_atoms: jnp.ndarray,
+    rj_pos: jnp.ndarray,
+    probs: jnp.ndarray,
+    scf_approx: scf.Scf,
+) -> jnp.ndarray:
+  if dim != 3:
+    raise ValueError('Only implemented for 3D systems')
+
+  _, psi_full_logs = batch_network(
+      params,
+      pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+
+  # Treat spins separately by default
+  idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  numer_value = jnp.zeros(2)
+
+  for spin, i in enumerate(idx):
+    def mean_r(q_left, q_right, R):
+      batch_size = R.shape[0]
+      Q_left = jnp.tile(q_left, (batch_size, 1))
+      Q_right = jnp.tile(q_right, (batch_size, 1))
+      M = jnp.hstack((Q_left, R, Q_right))
+      return jnp.mean(
+        jnp.exp(2 * phi_log(M, scf_approx, nspins)) / probs,
+        axis=0
+      )
+
+    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+    _, psi_zero_logs = batch_network(
+        params,
+        zeroed_pos,
+        spins,
+        batch_atoms,
+        charges,
+    )
+
+    split_res = jnp.hsplit(pos, (0, dim))
+    Q_left = split_res[0]
+    Q_right = split_res[2]
+
+    mean_rs = jax.vmap(mean_r, in_axes=(0, 0, None))(Q_left, Q_right, rj_pos)
+    numer_value = numer_value.at[spin].set(
+      jnp.mean(
+        jnp.exp(2 * psi_zero_logs) / mean_rs,
+        axis=0
+      )
+    )
+
+  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
+  spin_rho = jnp.sum(numer_value) / denom_value
+
+  return jnp.array([numer_value[0], numer_value[1], jnp.sum(numer_value), denom_value, spin_rho])

@@ -686,6 +686,7 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
     pmap_fn = constants.pmap(observable_fns['density'],
                              in_axes=(0, 0, pmap_density_axes))
     observable_fns['density'] = lambda *a, **kw: pmap_fn(*a, **kw).mean(0)
+    train_schema += ['density']
 
   if cfg.observables.spin_rho:
     observable_states['spin_rho'] = None
@@ -1047,7 +1048,10 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
             writer_kwargs['mu_y'] = obs_data[1]
             writer_kwargs['mu_z'] = obs_data[2]
           elif key == 'density':
-            pass
+            writer_kwargs[key] = obs_data
+            obs_data_list = obs_data.reshape(-1)
+            logging_str += ', <D>=' + '%03.4f,' * obs_data_list.shape[0]
+            logging_args += *obs_data_list,
           elif key == 's2':
             writer_kwargs[key] = obs_data
             logging_str += ', <S^2>=%03.4f'
@@ -1074,8 +1078,8 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
           np.save(s2_matrix_file, observable_data['s2'])
         if cfg.observables.dipole:
           np.save(dipole_matrix_file, observable_data['dipole'])
-      if cfg.observables.density:
-        np.save(density_matrix_file, observable_data['density'])
+      # if cfg.observables.density:
+      #   np.save(density_matrix_file, observable_data['density'])
 
       # Checkpointing
       if time.time() - time_of_last_ckpt > cfg.log.save_frequency * 60:
