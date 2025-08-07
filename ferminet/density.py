@@ -446,12 +446,14 @@ def get_rho_3(
 
   for spin, i in enumerate(idx):
     def mean_r(q_left, q_right, R):
-      batch_size = R.shape[0]
-      Q_left = jnp.tile(q_left, (batch_size, 1))
-      Q_right = jnp.tile(q_right, (batch_size, 1))
-      M = jnp.hstack((Q_left, R, Q_right))
+      R_size = R.shape[0]
+      Q_left = jnp.tile(q_left, (R_size, 1))
+      Q_right = jnp.tile(q_right, (R_size, 1))
+      M = jnp.hstack((Q_left, R, Q_right))  #.reshape(-1, (nspins[0] + nspins[1]) * dim)
+      # return f"{pos.shape = }, {rho_r.shape = }, {Q_left.shape = }, {Q_right.shape = }, {R.shape = }, {M.shape = }"
+      probs_for_R = calc_hf_prob(pos=R, scf_approx=scf_approx, nspins=nspins)
       return jnp.mean(
-        jnp.exp(2 * phi_log(M, scf_approx, nspins)) / probs,
+        jnp.exp(2 * phi_log(M, scf_approx, nspins)) / probs_for_R,
         axis=0
       )
 
@@ -468,6 +470,9 @@ def get_rho_3(
     Q_left = split_res[0]
     Q_right = split_res[2]
 
+    # radial_positions = jnp.array([(0.2 * i, 0, 0) for i in range(10)])
+    # mean_rs = jax.vmap(mean_r, in_axes=(0, 0, None))(Q_left, Q_right, radial_positions)
+
     mean_rs = jax.vmap(mean_r, in_axes=(0, 0, None))(Q_left, Q_right, rj_pos)
     numer_value = numer_value.at[spin].set(
       jnp.mean(
@@ -475,8 +480,11 @@ def get_rho_3(
         axis=0
       )
     )
+    #return f"{pos.shape = }, {Q_left.shape = }, {Q_right.shape = }, {rj_pos.shape = }, {mean_rs.shape = }"
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
   spin_rho = jnp.sum(numer_value) / denom_value
 
   return jnp.array([numer_value[0], numer_value[1], jnp.sum(numer_value), denom_value, spin_rho])
+
+  return mean_rs
