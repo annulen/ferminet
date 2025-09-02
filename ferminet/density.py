@@ -416,6 +416,19 @@ def phi_log(positions: jnp.ndarray, scf_approx: scf.Scf, nspins: Tuple[int, int]
   return phi_log
 
 
+def rho_r2_r3(pos23: jnp.ndarray, scf_approx: scf.Scf, nspins: Tuple[int, int], dim):
+  _, occ_mos = _eval_mos(
+    pos=pos23.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
+  phi1 = occ_mos[:, 0]
+  phi2 = occ_mos[:, 1]
+  phi3 = occ_mos[:, 2]
+  phi1_square = phi1 ** 2
+  phi2_square = phi2 ** 2
+  phi3_square = phi3 ** 2
+
+  return phi1
+
+
 def get_rho_3(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
