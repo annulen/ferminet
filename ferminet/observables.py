@@ -451,7 +451,7 @@ def make_spin_rho(
       data: networks.FermiNetData,
       state: None = None,
   ) -> jnp.ndarray:
-    return density.get_rho_2(
+    return density.get_rho_He_2(
         batch_signed_net,
         params,
         cfg.system.ndim,
