@@ -490,7 +490,7 @@ def get_rho_3(
   return mean_rs
 
 
-def get_rho_He_2(
+def get_rho_He(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
     dim: int,
@@ -528,6 +528,58 @@ def get_rho_He_2(
     probs = calc_hf_prob(pos=pos.reshape(-1, dim), scf_approx=scf_approx, nspins=nspins)
     # For He only:
     probs = probs.reshape(-1, 2)[:, 1 - i]
+    numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+
+  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
+  spin_rho = jnp.sum(numer_value) / denom_value
+
+  # return jnp.array([numer_value[0], numer_value[1], jnp.sum(numer_value), denom_value, spin_rho])
+  return jnp.array([spin_rho])
+
+
+def get_rho_He_2(
+    batch_network: networks.FermiNetLike,
+    params: networks.ParamTree,
+    dim: int,
+    pos: jnp.ndarray,
+    spins: jnp.ndarray,
+    charges: jnp.ndarray,
+    nspins: Tuple[int, int],
+    batch_atoms: jnp.ndarray,
+    scf_approx: scf.Scf,
+) -> jnp.ndarray:
+  if dim != 3:
+    raise ValueError('Only implemented for 3D systems')
+
+  _, psi_full_logs = batch_network(
+      params,
+      pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+
+  # Treat spins separately by default
+  idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  numer_value = jnp.zeros(2)
+  alpha_spin, beta_spin = scf_approx.eval_orbitals(pos, nspins)
+  # return f">>> {pos.shape = } {alpha_spin.shape = } { beta_spin.shape = }"
+  # mos = alpha_spin[..., 1, 1]
+
+  for spin, i in enumerate(idx):
+    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+    _, psi_zero_logs = batch_network(
+        params,
+        zeroed_pos,
+        spins,
+        batch_atoms,
+        charges,
+    )
+    if spin == 0:
+      probs = beta_spin[..., 1, 1] ** 2
+    elif spin == 1:
+      probs = alpha_spin[..., 1, 1] ** 2
+
     numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
