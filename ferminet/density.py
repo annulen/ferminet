@@ -566,6 +566,12 @@ def eval_orbitals2(self: scf.Scf,
     return jnp.concatenate((alpha_spin, beta_spin), axis=-1)
 
 
+def probs_He(mos: NDArray, i: int):
+    # For He: use squared orbital as probability
+    # mos[..., #elec, #MO]
+    return mos[..., 1 - i, 1 - i] ** 2
+
+
 def get_rho_He_2(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
@@ -592,7 +598,6 @@ def get_rho_He_2(
   idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
   numer_value = jnp.zeros(2)
   mos = eval_orbitals2(scf_approx, pos, nspins)
-  # return f">>> {pos.shape = } {alpha_spin.shape = } {beta_spin.shape = } {mos.shape = }"
 
   for spin, i in enumerate(idx):
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
@@ -603,9 +608,7 @@ def get_rho_He_2(
         batch_atoms,
         charges,
     )
-    # mos[..., #elec, #MO]
-    # For He: use squared orbital as probability
-    probs = mos[..., 1 - i, 1 - i] ** 2
+    probs = probs_He(mos, i)
     numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
