@@ -566,10 +566,14 @@ def eval_orbitals2(self: scf.Scf,
     return jnp.concatenate((alpha_spin, beta_spin), axis=-1)
 
 
+def mo_square(mos: NDArray, norb: int, nelec: int):
+  # mos[..., #elec, #MO]
+  return mos[..., nelec, norb] ** 2
+
+
 def probs_He(mos: NDArray, i: int):
-    # For He: use squared orbital as probability
-    # mos[..., #elec, #MO]
-    return mos[..., 1 - i, 1 - i] ** 2
+  # For He: use squared orbital as probability
+  return mo_square(mos, 1 - i, 1 - i)
 
 
 def get_rho_He_2(
