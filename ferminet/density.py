@@ -537,6 +537,35 @@ def get_rho_He(
   return jnp.array([spin_rho])
 
 
+NDArray = jnp.ndarray
+def eval_orbitals2(self: scf.Scf,
+                  pos: NDArray,
+                  nspins: Tuple[int, int]) -> Tuple[NDArray, NDArray]:
+    """Evaluates SCF orbitals at a set of positions.
+
+    Args:
+      pos: an array of electron positions to evaluate the orbitals at, of shape
+        (..., nelec*3), where the leading dimensions are arbitrary, nelec is the
+        number of electrons and the spin up electrons are ordered before the
+        spin down electrons.
+      nspins: tuple with number of spin up and spin down electrons.
+
+    Returns:
+      ...
+    """
+    leading_dims = pos.shape[:-1]
+    # split into separate electrons
+    pos = jnp.reshape(pos, [-1, 3])  # (batch*nelec, 3)
+    mos = self.eval_mos(pos)  # (batch*nelec, nbasis), (batch*nelec, nbasis)
+    # Reshape into (batch, nelec, nbasis) for each spin channel.
+    mos = [jnp.reshape(mo, leading_dims + (sum(nspins), -1)) for mo in mos]
+    # Return (using Aufbau principle) the matrices for the occupied alpha and
+    # beta orbitals. Number of alpha electrons given by nspins[0].
+    alpha_spin = mos[0][..., :, :nspins[0]]
+    beta_spin = mos[1][..., :, :nspins[1]]
+    return jnp.concatenate((alpha_spin, beta_spin), axis=-1)
+
+
 def get_rho_He_2(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
@@ -562,9 +591,8 @@ def get_rho_He_2(
   # Treat spins separately by default
   idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
   numer_value = jnp.zeros(2)
-  alpha_spin, beta_spin = scf_approx.eval_orbitals(pos, nspins)
-  # return f">>> {pos.shape = } {alpha_spin.shape = } { beta_spin.shape = }"
-  # mos = alpha_spin[..., 1, 1]
+  mos = eval_orbitals2(scf_approx, pos, nspins)
+  # return f">>> {pos.shape = } {alpha_spin.shape = } {beta_spin.shape = } {mos.shape = }"
 
   for spin, i in enumerate(idx):
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
@@ -575,11 +603,9 @@ def get_rho_He_2(
         batch_atoms,
         charges,
     )
-    if spin == 0:
-      probs = beta_spin[..., 1, 1] ** 2
-    elif spin == 1:
-      probs = alpha_spin[..., 1, 1] ** 2
-
+    # mos[..., #elec, #MO]
+    # For He: use squared orbital as probability
+    probs = mos[..., 1 - i, 1 - i] ** 2
     numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
