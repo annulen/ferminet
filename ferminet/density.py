@@ -606,20 +606,30 @@ def probs_He(m: MOs, i: int):
 #         - 2/3 * m.mo(2, 1) * m.mo(3, 2) * m.mo(2, 1) * m.mo(3, 2)
 #         - 2/3 * m.mo(1, 1) * m.mo(3, 2) * m.mo(1, 1) * m.mo(3, 2)
 #         )
-def probs_Li_alpha(m: MOs):
-  return ( 
-        m.mo_square(1, 2) * m.mo_square(3, 3)
-        + m.mo_square(2, 2) * m.mo_square(3, 3)
+# def probs_Li_alpha(m: MOs):
+#   return ( 
+#         m.mo_square(1, 2) * m.mo_square(3, 3)
+#         + m.mo_square(2, 2) * m.mo_square(3, 3)
+#         + m.mo_square(3, 2) * m.mo_square(1, 3)
+#         + m.mo_square(3, 2) * m.mo_square(2, 3)
+#         )
+
+# def probs_Li_beta(m: MOs):
+#   return (m.mo_square(1, 2) * m.mo_square(2, 3)
+#         + m.mo_square(2, 2) * m.mo_square(1, 3)
+#         - 2 * m.mo(1, 2) * m.mo(2, 3) * m.mo(1, 3) * m.mo(2, 2)
+#         )
+
+def probs_Li(m: MOs):
+  return (1/6) * (  # 1/(3!)
+          m.mo_square(2, 2) * m.mo_square(3, 3)
+        + m.mo_square(1, 2) * m.mo_square(2, 3)
         + m.mo_square(3, 2) * m.mo_square(1, 3)
-        + m.mo_square(3, 2) * m.mo_square(2, 3)
-        )
-
-def probs_Li_beta(m: MOs):
-  return (m.mo_square(1, 2) * m.mo_square(2, 3)
         + m.mo_square(2, 2) * m.mo_square(1, 3)
-        - 2 * m.mo(1, 2) * m.mo(2, 3) * m.mo(1, 3) * m.mo(2, 2)
-        )
-
+        + m.mo_square(1, 2) * m.mo_square(3, 3)
+        + m.mo_square(3, 2) * m.mo_square(2, 3)
+        - 2 * m.mo(1, 2) * m.mo(2, 3) * m.mo(2, 2) * m.mo(1, 3)
+  )
 
 def get_rho_He_2(
     batch_network: networks.FermiNetLike,
@@ -659,14 +669,14 @@ def get_rho_He_2(
     )
     # probs = probs_He(mos, i)
     if spin == 0:
-      probs = probs_Li_alpha(mos) + probs_Li_beta(mos)
+      probs = 3 * probs_Li(mos)
       numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
     elif spin == 1:
-      #probs = probs_Li_beta(mos)
+      # probs = probs_Li(mos)
       numer_value = numer_value.at[spin].set(0)
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
   spin_rho = jnp.sum(numer_value) / denom_value
 
-  return jnp.array([numer_value[0], numer_value[1], jnp.sum(numer_value), denom_value, spin_rho])
+  return jnp.array([numer_value[0], numer_value[1], denom_value, spin_rho])
   return jnp.array([spin_rho])
