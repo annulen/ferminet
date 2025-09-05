@@ -538,9 +538,18 @@ def get_rho_He(
 
 
 NDArray = jnp.ndarray
+
+class MOs:
+  def __init__(self, mos: NDArray):
+    self._mos = mos
+
+  def mo_square(self, norb: int, nelec: int):
+    return self._mos[..., nelec, norb] ** 2
+
+
 def eval_orbitals2(self: scf.Scf,
                   pos: NDArray,
-                  nspins: Tuple[int, int]) -> Tuple[NDArray, NDArray]:
+                  nspins: Tuple[int, int]) -> MOs:
     """Evaluates SCF orbitals at a set of positions.
 
     Args:
@@ -563,17 +572,14 @@ def eval_orbitals2(self: scf.Scf,
     # beta orbitals. Number of alpha electrons given by nspins[0].
     alpha_spin = mos[0][..., :, :nspins[0]]
     beta_spin = mos[1][..., :, :nspins[1]]
-    return jnp.concatenate((alpha_spin, beta_spin), axis=-1)
+    return MOs(jnp.concatenate((alpha_spin, beta_spin), axis=-1))
 
 
-def mo_square(mos: NDArray, norb: int, nelec: int):
-  # mos[..., #elec, #MO]
-  return mos[..., nelec, norb] ** 2
-
-
-def probs_He(mos: NDArray, i: int):
+def probs_He(m: MOs, i: int):
   # For He: use squared orbital as probability
-  return mo_square(mos, 1 - i, 1 - i)
+  return m.mo_square(1 - i, 1 - i)
+
+
 
 
 def get_rho_He_2(
