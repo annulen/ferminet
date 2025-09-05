@@ -578,9 +578,40 @@ def eval_orbitals2(self: scf.Scf,
     return MOs(jnp.concatenate((alpha_spin, beta_spin), axis=-1))
 
 
+def eval_orbitals2_alpha(self: scf.Scf,
+                         pos: NDArray,
+                         nspins: Tuple[int, int]) -> MOs:
+    """Evaluates SCF orbitals at a set of positions.
+
+    Args:
+      pos: an array of electron positions to evaluate the orbitals at, of shape
+        (..., nelec*3), where the leading dimensions are arbitrary, nelec is the
+        number of electrons and the spin up electrons are ordered before the
+        spin down electrons.
+      nspins: tuple with number of spin up and spin down electrons.
+
+    Returns:
+      ...
+    """
+    leading_dims = pos.shape[:-1]
+    # split into separate electrons
+    pos = jnp.reshape(pos, [-1, 3])  # (batch*nelec, 3)
+    mos = self.eval_mos(pos)  # (batch*nelec, nbasis), (batch*nelec, nbasis)
+    # Reshape into (batch, nelec, nbasis) for each spin channel.
+    mos = [jnp.reshape(mo, leading_dims + (sum(nspins), -1)) for mo in mos]
+    # Return (using Aufbau principle) the matrices for the occupied alpha and
+    # beta orbitals. Number of alpha electrons given by nspins[0].
+    alpha_spin = mos[0][..., :, :nspins[0]]
+    return MOs(alpha_spin)
+
+
 def probs_He(m: MOs, i: int):
   # For He: use squared orbital as probability
   return m.mo_square(1 - i, 1 - i)
+
+
+def probs_He_2(m: MOs, nelec: int):
+  return 0.5 * (m.mo_square(1, 1 - nelec) + m.mo_square(2, 1 - nelec))
 
 
 # def probs_Li_alpha(m: MOs):
@@ -631,6 +662,7 @@ def probs_Li(m: MOs):
         - 2 * m.mo(1, 2) * m.mo(2, 3) * m.mo(2, 2) * m.mo(1, 3)
   )
 
+
 def get_rho_He_2(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
@@ -654,9 +686,10 @@ def get_rho_He_2(
   )
 
   # Treat spins separately by default
-  idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  idx = (0, 1)
   numer_value = jnp.zeros(2)
-  mos = eval_orbitals2(scf_approx, pos, nspins)
+  mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
 
   for spin, i in enumerate(idx):
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
@@ -668,12 +701,15 @@ def get_rho_He_2(
         charges,
     )
     # probs = probs_He(mos, i)
-    if spin == 0:
-      probs = 3 * probs_Li(mos)
-      numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
-    elif spin == 1:
-      # probs = probs_Li(mos)
-      numer_value = numer_value.at[spin].set(0)
+    probs = probs_He_2(mos, i)
+    numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+    #if spin == 0:
+    #  probs = probs_Li(mos)
+    #  # probs = jnp.exp(2 * phi_log(zeroed_pos, scf_approx, nspins))
+    #  numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+    #elif spin == 1:
+    #  # probs = probs_Li(mos)
+    #  numer_value = numer_value.at[spin].set(0)
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
   spin_rho = jnp.sum(numer_value) / denom_value
