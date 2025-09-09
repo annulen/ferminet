@@ -667,31 +667,13 @@ def probs_Li(m: MOs):
   )
 
 
-def probs_Li_rohf(m: MOs):
+def probs_Li_rohf(m: MOs, el_i: int, el_j: int):
   return (1/3) * (  # 2/(3!)
-          m.mo_square(2, 2) * m.mo_square(1, 3)
-        + m.mo_square(1, 2) * m.mo_square(2, 3)
-        + m.mo_square(1, 2) * m.mo_square(1, 3)
-        - m.mo(1, 2) * m.mo(2, 3) * m.mo(2, 2) * m.mo(1, 3)
-  )
-
-
-def probs_Li_rohf_2(m: MOs):
-  return (1/3) * (
-          m.mo_square(2, 1) * m.mo_square(1, 3)
-        + m.mo_square(1, 1) * m.mo_square(2, 3)
-        + m.mo_square(1, 1) * m.mo_square(1, 3)
-        - m.mo(1, 1) * m.mo(2, 3)
-        * m.mo(2, 1) * m.mo(1, 3)
-  )
-
-def probs_Li_rohf_3(m: MOs):
-  return (1/3) * (
-          m.mo_square(2, 1) * m.mo_square(1, 2)
-        + m.mo_square(1, 1) * m.mo_square(2, 2)
-        + m.mo_square(1, 1) * m.mo_square(1, 2)
-        - m.mo(1, 1) * m.mo(2, 2)
-        * m.mo(2, 1) * m.mo(1, 2)
+          m.mo_square(2, el_i) * m.mo_square(1, el_j)
+        + m.mo_square(1, el_i) * m.mo_square(2, el_j)
+        + m.mo_square(1, el_i) * m.mo_square(1, el_j)
+        - m.mo(1, el_i) * m.mo(2, el_j)
+        * m.mo(2, el_i) * m.mo(1, el_j)
   )
 
 
@@ -794,11 +776,11 @@ def get_rho_Li_all_zero(
     )
     match i:
       case 0:
-        probs = probs_Li_rohf(mos)
+        probs = probs_Li_rohf(mos, 2, 3)
       case 1:
-        probs = probs_Li_rohf_2(mos)
+        probs = probs_Li_rohf(mos, 1, 3)
       case 2:
-        probs = probs_Li_rohf_3(mos)
+        probs = probs_Li_rohf(mos, 1, 2)
 
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
