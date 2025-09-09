@@ -663,6 +663,34 @@ def probs_Li(m: MOs):
   )
 
 
+def probs_Li_rohf(m: MOs):
+  return (1/3) * (  # 2/(3!)
+          m.mo_square(2, 2) * m.mo_square(1, 3)
+        + m.mo_square(1, 2) * m.mo_square(2, 3)
+        + m.mo_square(1, 2) * m.mo_square(1, 3)
+        - m.mo(1, 2) * m.mo(2, 3) * m.mo(2, 2) * m.mo(1, 3)
+  )
+
+
+def probs_Li_rohf_2(m: MOs):
+  return (1/3) * (
+          m.mo_square(2, 1) * m.mo_square(1, 3)
+        + m.mo_square(1, 1) * m.mo_square(2, 3)
+        + m.mo_square(1, 1) * m.mo_square(1, 3)
+        - m.mo(1, 1) * m.mo(2, 3)
+        * m.mo(2, 1) * m.mo(1, 3)
+  )
+
+def probs_Li_rohf_3(m: MOs):
+  return (1/3) * (
+          m.mo_square(2, 1) * m.mo_square(1, 2)
+        + m.mo_square(1, 1) * m.mo_square(2, 2)
+        + m.mo_square(1, 1) * m.mo_square(1, 2)
+        - m.mo(1, 1) * m.mo(2, 2)
+        * m.mo(2, 1) * m.mo(1, 2)
+  )
+
+
 def probs_Li_factorized(m: MOs):
   return (1/2) * (
           m.mo_square(2, 2) * m.mo_square(1, 3)
@@ -711,7 +739,7 @@ def get_rho_He_2(
     # probs = probs_He_2(mos, i+1)
     # numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
     if spin == 0:
-      probs = probs_Li_factorized(mos)
+      probs = probs_Li_rohf(mos)
       # probs = jnp.exp(2 * phi_log(zeroed_pos, scf_approx, nspins))
       numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
     elif spin == 1:
@@ -723,3 +751,54 @@ def get_rho_He_2(
 
   return jnp.array([numer_value[0], numer_value[1], denom_value, spin_rho])
   return jnp.array([spin_rho])
+
+
+def get_rho_Li_all_zero(
+    batch_network: networks.FermiNetLike,
+    params: networks.ParamTree,
+    dim: int,
+    pos: jnp.ndarray,
+    spins: jnp.ndarray,
+    charges: jnp.ndarray,
+    nspins: Tuple[int, int],
+    batch_atoms: jnp.ndarray,
+    scf_approx: scf.Scf,
+) -> jnp.ndarray:
+  if dim != 3:
+    raise ValueError('Only implemented for 3D systems')
+
+  _, psi_full_logs = batch_network(
+      params,
+      pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+
+  numer_value = jnp.zeros(3)
+  mos = eval_orbitals2(scf_approx, pos, nspins)
+
+  # for spin, i in enumerate(idx):
+  for i in range(3):
+    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+    _, psi_zero_logs = batch_network(
+        params,
+        zeroed_pos,
+        spins,
+        batch_atoms,
+        charges,
+    )
+    match i:
+      case 0:
+        probs = probs_Li_rohf(mos)
+      case 1:
+        probs = probs_Li_rohf_2(mos)
+      case 2:
+        probs = probs_Li_rohf_3(mos)
+
+    numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+
+  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
+  spin_rho = jnp.sum(numer_value) / (3 * denom_value)
+
+  return jnp.array([*numer_value, denom_value, spin_rho])
