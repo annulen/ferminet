@@ -542,8 +542,12 @@ NDArray = jnp.ndarray
 class MOs:
   def __init__(self, mos: NDArray):
     self._mos = mos
+    # self._mo_squares = jax.vmap(jax.vmap(...))
 
   def mo(self, norb: int, nelec: int):
+    # checkify?
+    # assert norb > 0, "norb must be positive"
+    # assert nelec > 0, "nelec must be positive"
     return self._mos[..., nelec - 1, norb - 1]
 
   def mo_square(self, norb: int, nelec: int):
