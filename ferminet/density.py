@@ -663,6 +663,13 @@ def probs_Li(m: MOs):
   )
 
 
+def probs_Li_factorized(m: MOs):
+  return (1/2) * (
+          m.mo_square(2, 2) * m.mo_square(1, 3)
+        + m.mo_square(1, 2) * m.mo_square(1, 3)
+  )
+
+
 def get_rho_He_2(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
@@ -704,7 +711,7 @@ def get_rho_He_2(
     # probs = probs_He_2(mos, i+1)
     # numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
     if spin == 0:
-      probs = probs_Li(mos)
+      probs = probs_Li_factorized(mos)
       # probs = jnp.exp(2 * phi_log(zeroed_pos, scf_approx, nspins))
       numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
     elif spin == 1:
