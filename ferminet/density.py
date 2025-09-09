@@ -544,10 +544,10 @@ class MOs:
     self._mos = mos
 
   def mo(self, norb: int, nelec: int):
-    return self._mos[..., nelec, norb]
+    return self._mos[..., nelec - 1, norb - 1]
 
   def mo_square(self, norb: int, nelec: int):
-    return self._mos[..., nelec, norb] ** 2
+    return self.mo(norb, nelec) ** 2
 
 
 def eval_orbitals2(self: scf.Scf,
@@ -605,9 +605,9 @@ def eval_orbitals2_alpha(self: scf.Scf,
     return MOs(alpha_spin)
 
 
-def probs_He(m: MOs, i: int):
+def probs_He(m: MOs, nelec: int):
   # For He: use squared orbital as probability
-  return m.mo_square(1 - i, 1 - i)
+  return m.mo_square(1 - nelec, 1 - nelec)
 
 
 def probs_He_2(m: MOs, nelec: int):
@@ -686,10 +686,10 @@ def get_rho_He_2(
   )
 
   # Treat spins separately by default
-  # idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
-  idx = (0, 1)
+  idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
+  # idx = (0, 1)
   numer_value = jnp.zeros(2)
-  mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
+  mos = eval_orbitals2(scf_approx, pos, nspins)
 
   for spin, i in enumerate(idx):
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
@@ -700,19 +700,19 @@ def get_rho_He_2(
         batch_atoms,
         charges,
     )
-    # probs = probs_He(mos, i)
-    probs = probs_He_2(mos, i)
-    numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
-    #if spin == 0:
-    #  probs = probs_Li(mos)
-    #  # probs = jnp.exp(2 * phi_log(zeroed_pos, scf_approx, nspins))
-    #  numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
-    #elif spin == 1:
-    #  # probs = probs_Li(mos)
-    #  numer_value = numer_value.at[spin].set(0)
+    # probs = probs_He(mos, i+1)
+    # probs = probs_He_2(mos, i+1)
+    # numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+    if spin == 0:
+      probs = probs_Li(mos)
+      # probs = jnp.exp(2 * phi_log(zeroed_pos, scf_approx, nspins))
+      numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+    elif spin == 1:
+      # probs = probs_Li(mos)
+      numer_value = numer_value.at[spin].set(0)
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
-  spin_rho = jnp.sum(numer_value) / denom_value
+  spin_rho = 3 * jnp.sum(numer_value) / denom_value
 
   return jnp.array([numer_value[0], numer_value[1], denom_value, spin_rho])
   return jnp.array([spin_rho])
