@@ -765,7 +765,8 @@ def get_rho_Li_all_zero(
   mos = eval_orbitals2(scf_approx, pos, nspins)
 
   # for spin, i in enumerate(idx):
-  for i in range(3):
+  el_numbers = range(3)
+  for i in el_numbers:
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
     _, psi_zero_logs = batch_network(
         params,
@@ -774,14 +775,8 @@ def get_rho_Li_all_zero(
         batch_atoms,
         charges,
     )
-    match i:
-      case 0:
-        probs = probs_Li_rohf(mos, 2, 3)
-      case 1:
-        probs = probs_Li_rohf(mos, 1, 3)
-      case 2:
-        probs = probs_Li_rohf(mos, 1, 2)
-
+    el_numbers_without_i = [n + 1 for n in el_numbers if n != i]
+    probs = probs_Li_rohf(mos, *el_numbers_without_i)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
