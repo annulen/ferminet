@@ -775,7 +775,7 @@ def get_rho_Li_all_zero(
   )
 
   nelec = nspins[0] + nspins[1]
-  nelec_factorial = jss.factorial(nelec)
+  nelec_factorial = jnp.round(jss.factorial(nelec))
   numer_value = jnp.zeros(nelec)
   mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
 
