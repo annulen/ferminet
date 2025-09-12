@@ -23,6 +23,7 @@ from ferminet import networks
 from ferminet.utils import scf
 import jax
 from jax import numpy as jnp
+import jax.scipy.special as jss
 
 
 def _eval_mos(pos: jnp.ndarray, scf_approx: scf.Scf,
@@ -677,6 +678,18 @@ def probs_Li_rohf(m: MOs, el_i: int, el_j: int):
   )
 
 
+def probs_Li_rohf_v2(m: MOs, els: NDArray, nelec_factorial: int):
+  el_i = els[0]
+  el_j = els[1]
+  return (2 / nelec_factorial) * (
+          m.mo_square(2, el_i) * m.mo_square(1, el_j)
+        + m.mo_square(1, el_i) * m.mo_square(2, el_j)
+        + m.mo_square(1, el_i) * m.mo_square(1, el_j)
+        - m.mo(1, el_i) * m.mo(2, el_j)
+        * m.mo(2, el_i) * m.mo(1, el_j)
+  )
+
+
 def probs_Li_factorized(m: MOs):
   return (1/2) * (
           m.mo_square(2, 2) * m.mo_square(1, 3)
@@ -761,11 +774,13 @@ def get_rho_Li_all_zero(
       charges,
   )
 
-  numer_value = jnp.zeros(3)
-  mos = eval_orbitals2(scf_approx, pos, nspins)
+  nelec = nspins[0] + nspins[1]
+  nelec_factorial = jss.factorial(nelec)
+  numer_value = jnp.zeros(nelec)
+  mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
 
   # for spin, i in enumerate(idx):
-  el_numbers = range(3)
+  el_numbers = range(nelec)
   for i in el_numbers:
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
     _, psi_zero_logs = batch_network(
@@ -775,11 +790,11 @@ def get_rho_Li_all_zero(
         batch_atoms,
         charges,
     )
-    el_numbers_without_i = [n + 1 for n in el_numbers if n != i]
-    probs = probs_Li_rohf(mos, *el_numbers_without_i)
+    el_numbers_without_i = jnp.array([n + 1 for n in el_numbers if n != i])
+    probs = probs_Li_rohf_v2(mos, el_numbers_without_i, nelec_factorial)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
-  spin_rho = jnp.sum(numer_value) / (3 * denom_value)
+  spin_rho = jnp.sum(numer_value) / (nelec * denom_value)
 
   return jnp.array([*numer_value, denom_value, spin_rho])
