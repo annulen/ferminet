@@ -690,6 +690,23 @@ def probs_Li_rohf_v2(m: MOs, els: NDArray, nelec_factorial: int):
   )
 
 
+def probs_Li_rohf_v3(m: MOs, elecs: NDArray, nelec_factorial: int):
+  el_i = elecs[0]
+  el_j = elecs[1]
+
+  def prod_squares(orbs, elecs: NDArray):
+    result = jax.vmap(m.mo_square, in_axes=(0, 0))(jnp.array(orbs), elecs)
+    return jnp.prod(result, axis=0)
+
+  return (2 / nelec_factorial) * (
+      prod_squares((2, 1), elecs)
+    + prod_squares((1, 2), elecs)
+    + prod_squares((1, 1), elecs)
+    - m.mo(1, el_i) * m.mo(2, el_j)
+    * m.mo(2, el_i) * m.mo(1, el_j)
+  )
+
+
 def probs_Li_factorized(m: MOs):
   return (1/2) * (
           m.mo_square(2, 2) * m.mo_square(1, 3)
@@ -791,7 +808,7 @@ def get_rho_Li_all_zero(
         charges,
     )
     el_numbers_without_i = jnp.array([n + 1 for n in el_numbers if n != i])
-    probs = probs_Li_rohf_v2(mos, el_numbers_without_i, nelec_factorial)
+    probs = probs_Li_rohf_v3(mos, el_numbers_without_i, nelec_factorial)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
