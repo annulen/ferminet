@@ -691,19 +691,23 @@ def probs_Li_rohf_v2(m: MOs, els: NDArray, nelec_factorial: int):
 
 
 def probs_Li_rohf_v3(m: MOs, elecs: NDArray, nelec_factorial: int):
-  el_i = elecs[0]
-  el_j = elecs[1]
-
   def prod_squares(orbs, elecs: NDArray):
     result = jax.vmap(m.mo_square, in_axes=(0, 0))(jnp.array(orbs), elecs)
     return jnp.prod(result, axis=0)
+
+  def nondiag(orb_pair, elecs: NDArray):
+    return ((-1)
+      * m.mo(orb_pair[0], elecs[0])
+      * m.mo(orb_pair[1], elecs[0])
+      * m.mo(orb_pair[0], elecs[1])
+      * m.mo(orb_pair[1], elecs[1])
+    )
 
   return (2 / nelec_factorial) * (
       prod_squares((2, 1), elecs)
     + prod_squares((1, 2), elecs)
     + prod_squares((1, 1), elecs)
-    - m.mo(1, el_i) * m.mo(2, el_j)
-    * m.mo(2, el_i) * m.mo(1, el_j)
+    + nondiag((1, 2), elecs)
   )
 
 
