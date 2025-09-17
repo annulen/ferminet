@@ -21,9 +21,11 @@ from ferminet import constants
 from ferminet import mcmc
 from ferminet import networks
 from ferminet.utils import scf
+import itertools
 import jax
 from jax import numpy as jnp
 import jax.scipy.special as jss
+import numpy as np
 
 
 def _eval_mos(pos: jnp.ndarray, scf_approx: scf.Scf,
@@ -711,9 +713,9 @@ def probs_Li_nondiag(m: MOs, orb_pair, elecs: NDArray):
   )
 
 
-def probs_Li_rohf_v3(m: MOs, elecs: NDArray, nelec_factorial: int):
+def probs_Li_rohf_v3(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_factorial: int):
   return (2 / nelec_factorial) * (
-      probs_Li_squares(m, jnp.array(((2, 1), (1, 2), (1, 1))), elecs, nelec_factorial)
+      probs_Li_squares(m, orb_pairs, elecs, nelec_factorial)
     + probs_Li_nondiag(m, (1, 2), elecs)
   )
 
@@ -780,6 +782,10 @@ def get_rho_He_2(
   return jnp.array([spin_rho])
 
 
+def irange(stop: int):
+  return range(1, 1 + stop)
+
+
 def get_rho_Li_all_zero(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
@@ -803,6 +809,9 @@ def get_rho_Li_all_zero(
   )
 
   nelec = nspins[0] + nspins[1]
+  # ROHF
+  orb_pairs_iter = itertools.combinations(itertools.chain(irange(nspins[0]), irange(nspins[1])), 2)
+  orb_pairs = jnp.array(tuple(orb_pairs_iter))
   nelec_factorial = jnp.round(jss.factorial(nelec))
   numer_value = jnp.zeros(nelec)
   mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
@@ -819,7 +828,7 @@ def get_rho_Li_all_zero(
         charges,
     )
     el_numbers_without_i = jnp.array([n + 1 for n in el_numbers if n != i])
-    probs = probs_Li_rohf_v3(mos, el_numbers_without_i, nelec_factorial)
+    probs = probs_Li_rohf_v3(mos, orb_pairs, el_numbers_without_i, nelec_factorial)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
