@@ -441,7 +441,8 @@ def make_spin_rho(
       signed_network, in_axes=(None, 0, 0, 0, 0), out_axes=0,)
   scf_approx = scf.Scf(
       molecule=cfg.system.molecule,
-      restricted=True,
+      restricted=False,
+      # restricted=True,
       nelectrons=cfg.system.electrons,
       basis=cfg.observables.density_basis)
   scf_approx.run()
