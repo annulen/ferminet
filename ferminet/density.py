@@ -813,15 +813,18 @@ def get_rho_Li_all_zero(
   )
 
   nelec = nspins[0] + nspins[1]
-  # ROHF
-  # orb_pairs_iter = itertools.combinations(itertools.chain(irange(nspins[0]), irange(nspins[1])), 2)
-  # UHF
-  orb_pairs_iter = itertools.permutations(irange(nelec), 2)
+  if scf_approx.restricted:
+    orb_pairs_iter = itertools.combinations(itertools.chain(irange(nspins[0]), irange(nspins[1])), 2)
+    mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
+    probs_fun = probs_Li_rohf_v3
+  else:
+    orb_pairs_iter = itertools.permutations(irange(nelec), 2)
+    mos = eval_orbitals2(scf_approx, pos, nspins)
+    probs_fun = probs_Li_uhf
+
   orb_pairs = jnp.array(tuple(orb_pairs_iter))
   nelec_factorial = jnp.round(jss.factorial(nelec))
   numer_value = jnp.zeros(nelec)
-  # mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
-  mos = eval_orbitals2(scf_approx, pos, nspins)
 
   # for spin, i in enumerate(idx):
   el_numbers = range(nelec)
@@ -835,8 +838,7 @@ def get_rho_Li_all_zero(
         charges,
     )
     el_numbers_without_i = jnp.array([n + 1 for n in el_numbers if n != i])
-    probs = probs_Li_uhf(mos, orb_pairs, el_numbers_without_i, nelec_factorial)
-    # probs = probs_Li_rohf_v3(mos, orb_pairs, el_numbers_without_i, nelec_factorial)
+    probs = probs_fun(mos, orb_pairs, el_numbers_without_i, nelec_factorial)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
