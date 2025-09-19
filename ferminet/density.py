@@ -621,83 +621,12 @@ def probs_He_2(m: MOs, nelec: int):
   return 0.5 * (m.mo_square(1, 1 - nelec) + m.mo_square(2, 1 - nelec))
 
 
-# def probs_Li_alpha(m: MOs):
-#   return (m.mo_square(1, 2) * m.mo_square(2, 3)
-#         + m.mo_square(1, 2) * m.mo_square(3, 3)
-#         + m.mo_square(2, 2) * m.mo_square(1, 3)
-#         + m.mo_square(2, 2) * m.mo_square(3, 3)
-#         + m.mo_square(3, 2) * m.mo_square(1, 3)
-#         + m.mo_square(3, 2) * m.mo_square(2, 3)
-#         - 2/3 * m.mo(1, 2) * m.mo(2, 3) * m.mo(1, 2) * m.mo(2, 3)
-#         - 2/3 * m.mo(2, 2) * m.mo(3, 3) * m.mo(2, 2) * m.mo(3, 3)
-#         - 2/3 * m.mo(1, 2) * m.mo(3, 3) * m.mo(1, 2) * m.mo(3, 3)
-#         )
-# 
-# def probs_Li_beta(m: MOs):
-#   return (m.mo_square(1, 1) * m.mo_square(2, 2)
-#         + m.mo_square(1, 1) * m.mo_square(3, 2)
-#         + m.mo_square(2, 1) * m.mo_square(1, 2)
-#         + m.mo_square(2, 1) * m.mo_square(3, 2)
-#         + m.mo_square(3, 1) * m.mo_square(1, 2)
-#         + m.mo_square(3, 1) * m.mo_square(2, 2)
-#         - 2/3 * m.mo(1, 1) * m.mo(2, 2) * m.mo(1, 1) * m.mo(2, 2)
-#         - 2/3 * m.mo(2, 1) * m.mo(3, 2) * m.mo(2, 1) * m.mo(3, 2)
-#         - 2/3 * m.mo(1, 1) * m.mo(3, 2) * m.mo(1, 1) * m.mo(3, 2)
-#         )
-# def probs_Li_alpha(m: MOs):
-#   return ( 
-#         m.mo_square(1, 2) * m.mo_square(3, 3)
-#         + m.mo_square(2, 2) * m.mo_square(3, 3)
-#         + m.mo_square(3, 2) * m.mo_square(1, 3)
-#         + m.mo_square(3, 2) * m.mo_square(2, 3)
-#         )
-
-# def probs_Li_beta(m: MOs):
-#   return (m.mo_square(1, 2) * m.mo_square(2, 3)
-#         + m.mo_square(2, 2) * m.mo_square(1, 3)
-#         - 2 * m.mo(1, 2) * m.mo(2, 3) * m.mo(1, 3) * m.mo(2, 2)
-#         )
-
-def probs_Li(m: MOs):
-  return (1/6) * (  # 1/(3!)
-          m.mo_square(2, 2) * m.mo_square(3, 3)
-        + m.mo_square(1, 2) * m.mo_square(2, 3)
-        + m.mo_square(3, 2) * m.mo_square(1, 3)
-        + m.mo_square(2, 2) * m.mo_square(1, 3)
-        + m.mo_square(1, 2) * m.mo_square(3, 3)
-        + m.mo_square(3, 2) * m.mo_square(2, 3)
-        - 2 * m.mo(1, 2) * m.mo(2, 3) * m.mo(2, 2) * m.mo(1, 3)
-  )
-
-
-def probs_Li_rohf(m: MOs, el_i: int, el_j: int):
-  return (1/3) * (  # 2/(3!)
-          m.mo_square(2, el_i) * m.mo_square(1, el_j)
-        + m.mo_square(1, el_i) * m.mo_square(2, el_j)
-        + m.mo_square(1, el_i) * m.mo_square(1, el_j)
-        - m.mo(1, el_i) * m.mo(2, el_j)
-        * m.mo(2, el_i) * m.mo(1, el_j)
-  )
-
-
-def probs_Li_rohf_v2(m: MOs, els: NDArray, nelec_factorial: int):
-  el_i = els[0]
-  el_j = els[1]
-  return (2 / nelec_factorial) * (
-          m.mo_square(2, el_i) * m.mo_square(1, el_j)
-        + m.mo_square(1, el_i) * m.mo_square(2, el_j)
-        + m.mo_square(1, el_i) * m.mo_square(1, el_j)
-        - m.mo(1, el_i) * m.mo(2, el_j)
-        * m.mo(2, el_i) * m.mo(1, el_j)
-  )
-
-
-def probs_Li_squares(m: MOs, orb_pairs: NDArray, elecs: NDArray):
+def probs_sum_squares(m: MOs, orb_permutations: NDArray, elecs: NDArray):
   def prod_squares(orbs: NDArray):
     squares = jax.vmap(m.mo_square, in_axes=(0, 0))(orbs, elecs)
     return jnp.prod(squares, axis=0)
 
-  prods = jax.vmap(prod_squares, in_axes=(0))(orb_pairs)
+  prods = jax.vmap(prod_squares, in_axes=(0))(orb_permutations)
   return jnp.sum(prods, axis=0)
 
 
@@ -710,80 +639,18 @@ def probs_Li_nondiag(m: MOs, orb_pair, elecs: NDArray):
   )
 
 
-def probs_Li_rohf_v3(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
+def probs_Li_rohf(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
   return (2 / nelec_minus_one_factorial) * (
-      probs_Li_squares(m, orb_pairs, elecs)
+      probs_sum_squares(m, orb_pairs, elecs)
     + probs_Li_nondiag(m, (1, 2), elecs)
   )
 
 
 def probs_Li_uhf(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
   return (1 / nelec_minus_one_factorial) * (
-      probs_Li_squares(m, orb_pairs, elecs)
+      probs_sum_squares(m, orb_pairs, elecs)
     + 2 * probs_Li_nondiag(m, (1, 2), elecs)
   )
-
-
-def probs_Li_factorized(m: MOs):
-  return (1/2) * (
-          m.mo_square(2, 2) * m.mo_square(1, 3)
-        + m.mo_square(1, 2) * m.mo_square(1, 3)
-  )
-
-
-def get_rho_He_2(
-    batch_network: networks.FermiNetLike,
-    params: networks.ParamTree,
-    dim: int,
-    pos: jnp.ndarray,
-    spins: jnp.ndarray,
-    charges: jnp.ndarray,
-    nspins: Tuple[int, int],
-    batch_atoms: jnp.ndarray,
-    scf_approx: scf.Scf,
-) -> jnp.ndarray:
-  if dim != 3:
-    raise ValueError('Only implemented for 3D systems')
-
-  _, psi_full_logs = batch_network(
-      params,
-      pos,
-      spins,
-      batch_atoms,
-      charges,
-  )
-
-  # Treat spins separately by default
-  idx = (0, nspins[0]) if nspins[1] > 0 else (0,)
-  # idx = (0, 1)
-  numer_value = jnp.zeros(2)
-  mos = eval_orbitals2(scf_approx, pos, nspins)
-
-  for spin, i in enumerate(idx):
-    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
-    _, psi_zero_logs = batch_network(
-        params,
-        zeroed_pos,
-        spins,
-        batch_atoms,
-        charges,
-    )
-    # probs = probs_He(mos, i+1)
-    # probs = probs_He_2(mos, i+1)
-    # numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
-    if spin == 0:
-      probs = probs_Li_rohf(mos)
-      # probs = jnp.exp(2 * phi_log(zeroed_pos, scf_approx, nspins))
-      numer_value = numer_value.at[spin].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
-    elif spin == 1:
-      # probs = probs_Li(mos)
-      numer_value = numer_value.at[spin].set(0)
-
-  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
-  spin_rho = 3 * jnp.sum(numer_value) / denom_value
-
-  return jnp.array([numer_value[0], numer_value[1], denom_value, spin_rho])
-  return jnp.array([spin_rho])
 
 
 def irange(stop: int):
@@ -794,7 +661,7 @@ def int_factorial(x: int):
   return jnp.round(jss.factorial(x))
 
 
-def get_rho_Li_all_zero(
+def get_rho_all_zero(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
     dim: int,
@@ -820,7 +687,7 @@ def get_rho_Li_all_zero(
   if scf_approx.restricted:
     orb_pairs_iter = itertools.combinations(itertools.chain(irange(nspins[0]), irange(nspins[1])), nelec - 1)
     mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
-    probs_fun = probs_Li_rohf_v3
+    probs_fun = probs_Li_rohf
   else:
     orb_pairs_iter = itertools.permutations(irange(nelec), nelec - 1)
     mos = eval_orbitals2(scf_approx, pos, nspins)
@@ -830,7 +697,6 @@ def get_rho_Li_all_zero(
   nelec_minus_one_factorial = int_factorial(nelec - 1)
   numer_value = jnp.zeros(nelec)
 
-  # for spin, i in enumerate(idx):
   el_numbers = range(nelec)
   for i in el_numbers:
     zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
