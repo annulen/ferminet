@@ -790,6 +790,10 @@ def irange(stop: int):
   return range(1, 1 + stop)
 
 
+def int_factorial(x: int):
+  return jnp.round(jss.factorial(x))
+
+
 def get_rho_Li_all_zero(
     batch_network: networks.FermiNetLike,
     params: networks.ParamTree,
@@ -823,7 +827,7 @@ def get_rho_Li_all_zero(
     probs_fun = probs_Li_uhf
 
   orb_pairs = jnp.array(tuple(orb_pairs_iter))
-  nelec_factorial = jnp.round(jss.factorial(nelec))
+  nelec_factorial = int_factorial(nelec)
   numer_value = jnp.zeros(nelec)
 
   # for spin, i in enumerate(idx):
