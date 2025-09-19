@@ -818,11 +818,11 @@ def get_rho_Li_all_zero(
 
   nelec = nspins[0] + nspins[1]
   if scf_approx.restricted:
-    orb_pairs_iter = itertools.combinations(itertools.chain(irange(nspins[0]), irange(nspins[1])), 2)
+    orb_pairs_iter = itertools.combinations(itertools.chain(irange(nspins[0]), irange(nspins[1])), nelec - 1)
     mos = eval_orbitals2_alpha(scf_approx, pos, nspins)
     probs_fun = probs_Li_rohf_v3
   else:
-    orb_pairs_iter = itertools.permutations(irange(nelec), 2)
+    orb_pairs_iter = itertools.permutations(irange(nelec), nelec - 1)
     mos = eval_orbitals2(scf_approx, pos, nspins)
     probs_fun = probs_Li_uhf
 
