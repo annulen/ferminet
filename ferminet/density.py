@@ -639,23 +639,23 @@ def probs_Li_nondiag(m: MOs, orb_pair, elecs: NDArray):
   )
 
 
-def probs_Be_nondiag(m: MOs):
+def probs_Be_nondiag(m: MOs, elecs: NDArray):
   return (-1) * (
-      m.mo_square(2, 2) * m.mo(3, 3) * m.mo(4, 3) * m.mo(3, 4) * m.mo(4, 4)
-    + m.mo_square(2, 3) * m.mo(3, 2) * m.mo(4, 2) * m.mo(3, 4) * m.mo(4, 4)
-    + m.mo_square(2, 4) * m.mo(3, 3) * m.mo(4, 3) * m.mo(3, 2) * m.mo(4, 2)
+      m.mo_square(2, elecs[0]) * m.mo(3, elecs[1]) * m.mo(4, elecs[1]) * m.mo(3, elecs[2]) * m.mo(4, elecs[2])
+    + m.mo_square(2, elecs[1]) * m.mo(3, elecs[0]) * m.mo(4, elecs[0]) * m.mo(3, elecs[2]) * m.mo(4, elecs[2])
+    + m.mo_square(2, elecs[2]) * m.mo(3, elecs[1]) * m.mo(4, elecs[1]) * m.mo(3, elecs[0]) * m.mo(4, elecs[0])
 
-    + m.mo_square(1, 2) * m.mo(3, 3) * m.mo(4, 3) * m.mo(3, 4) * m.mo(4, 4)
-    + m.mo_square(1, 3) * m.mo(3, 2) * m.mo(4, 2) * m.mo(3, 4) * m.mo(4, 4)
-    + m.mo_square(1, 4) * m.mo(3, 3) * m.mo(4, 3) * m.mo(3, 2) * m.mo(4, 2)
+    # + m.mo_square(1, elecs[0]) * m.mo(3, elecs[1]) * m.mo(4, elecs[1]) * m.mo(3, elecs[2]) * m.mo(4, elecs[2])
+    # + m.mo_square(1, elecs[1]) * m.mo(3, elecs[0]) * m.mo(4, elecs[0]) * m.mo(3, elecs[2]) * m.mo(4, elecs[2])
+    # + m.mo_square(1, elecs[2]) * m.mo(3, elecs[1]) * m.mo(4, elecs[1]) * m.mo(3, elecs[0]) * m.mo(4, elecs[0])
 
-    + m.mo_square(3, 2) * m.mo(1, 3) * m.mo(2, 3) * m.mo(1, 4) * m.mo(2, 4)
-    + m.mo_square(3, 3) * m.mo(1, 2) * m.mo(2, 2) * m.mo(1, 4) * m.mo(2, 4)
-    + m.mo_square(3, 4) * m.mo(1, 3) * m.mo(2, 3) * m.mo(1, 2) * m.mo(2, 2)
+    # - m.mo_square(3, elecs[0]) * m.mo(1, elecs[1]) * m.mo(2, elecs[1]) * m.mo(1, elecs[2]) * m.mo(2, elecs[2])
+    # - m.mo_square(3, elecs[1]) * m.mo(1, elecs[0]) * m.mo(2, elecs[0]) * m.mo(1, elecs[2]) * m.mo(2, elecs[2])
+    # - m.mo_square(3, elecs[2]) * m.mo(1, elecs[1]) * m.mo(2, elecs[1]) * m.mo(1, elecs[0]) * m.mo(2, elecs[0])
 
-    + m.mo_square(4, 2) * m.mo(1, 3) * m.mo(2, 3) * m.mo(1, 4) * m.mo(2, 4)
-    + m.mo_square(4, 3) * m.mo(1, 2) * m.mo(2, 2) * m.mo(1, 4) * m.mo(2, 4)
-    + m.mo_square(4, 4) * m.mo(1, 3) * m.mo(2, 3) * m.mo(1, 2) * m.mo(2, 2)
+    # - m.mo_square(4, elecs[0]) * m.mo(1, elecs[1]) * m.mo(2, elecs[1]) * m.mo(1, elecs[2]) * m.mo(2, elecs[2])
+    # - m.mo_square(4, elecs[1]) * m.mo(1, elecs[0]) * m.mo(2, elecs[0]) * m.mo(1, elecs[2]) * m.mo(2, elecs[2])
+    # - m.mo_square(4, elecs[2]) * m.mo(1, elecs[1]) * m.mo(2, elecs[1]) * m.mo(1, elecs[0]) * m.mo(2, elecs[0])
   )
 
 
@@ -672,10 +672,10 @@ def probs_Li_uhf(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_fac
     + 2 * probs_Li_nondiag(m, (1, 2), elecs)
   )
 
-def probs_uhf(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
+def probs_uhf(m: MOs, orb_permutations: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
   return (1 / nelec_minus_one_factorial) * (
-      probs_sum_squares(m, orb_pairs, elecs)
-    + 2 * probs_Be_nondiag(m)
+      probs_sum_squares(m, orb_permutations, elecs)
+    + 2 * probs_Be_nondiag(m, elecs)
   )
 
 
@@ -717,11 +717,15 @@ def get_rho_all_zero(
   else:
     orb_pairs_iter = itertools.permutations(irange(nelec), nelec - 1)
     mos = eval_orbitals2(scf_approx, pos, nspins)
-    probs_fun = probs_uhf  #probs_Li_uhf
+    probs_fun = probs_Li_uhf
+  # probs_fun = probs_uhf
 
+  # orb_pairs = tuple(orb_pairs_iter)
+  # return f"{orb_pairs = }"
   orb_pairs = jnp.array(tuple(orb_pairs_iter))
   nelec_minus_one_factorial = int_factorial(nelec - 1)
   numer_value = jnp.zeros(nelec)
+  # nondiag = jnp.zeros(nelec)
 
   el_numbers = range(nelec)
   for i in el_numbers:
@@ -736,8 +740,20 @@ def get_rho_all_zero(
     el_numbers_without_i = jnp.array([n + 1 for n in el_numbers if n != i])
     probs = probs_fun(mos, orb_pairs, el_numbers_without_i, nelec_minus_one_factorial)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+    # nondiag = nondiag.at[i].set(probs_Be_nondiag(mos, el_numbers_without_i))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
   spin_rho = jnp.sum(numer_value) / denom_value
 
   return jnp.array([*numer_value, denom_value, spin_rho])
+  # return jnp.array([*nondiag, spin_rho])
+
+
+
+# def eval_slater_square(
+#   pos: jnp.ndarray,
+#   nspins: Tuple[int, int],
+#   scf_approx: scf.Scf,
+# ):
+#   # sum(M_alpha) + sum(M_beta)
+#   pass
