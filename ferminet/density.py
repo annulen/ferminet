@@ -672,7 +672,7 @@ def probs_Li_uhf(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_fac
     + 2 * probs_Li_nondiag(m, (1, 2), elecs)
   )
 
-def probs_uhf(m: MOs, orb_permutations: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
+def probs_uhf_Be(m: MOs, orb_permutations: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
   return (1 / nelec_minus_one_factorial) * (
       probs_sum_squares(m, orb_permutations, elecs)
     + 2 * probs_Be_nondiag(m, elecs)
@@ -718,7 +718,7 @@ def get_rho_all_zero(
     orb_pairs_iter = itertools.permutations(irange(nelec), nelec - 1)
     mos = eval_orbitals2(scf_approx, pos, nspins)
     # probs_fun = probs_Li_uhf
-    probs_fun = probs_uhf
+    probs_fun = probs_uhf_Be
 
   # orb_pairs = tuple(orb_pairs_iter)
   # return f"{orb_pairs = }"
