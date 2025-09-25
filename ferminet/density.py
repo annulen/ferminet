@@ -695,8 +695,7 @@ def matrix_minor(m: NDArray, norb: int, nelec: int):
 
 def probs_uhf(matrices: NDArray,
               nspins: Tuple[int, int],
-              nelec: int,
-              nelecs_minus_one_factorial: int):
+              nelec: int):
   is_beta = nelec > nspins[0]
   if is_beta:
     matrix = matrices[1]
@@ -715,7 +714,7 @@ def probs_uhf(matrices: NDArray,
     return (matrix_minor(matrix, norb, n_in_matrix) * matrix_other_det) ** 2
 
   minors = jax.vmap(f, in_axes=(0))(jnp.array(irange(nelecs)))
-  return (1 / nelecs_minus_one_factorial) * jnp.sum(minors, axis=0)
+  return jnp.sum(minors, axis=0)
 
 
 def get_rho_all_zero(
@@ -805,7 +804,6 @@ def get_rho_generic(
   )
 
   nelecs = nspins[0] + nspins[1]
-  nelecs_minus_one_factorial = 1 # int_factorial(nelecs - 1)
   orb_matrices = scf_approx.eval_orbitals(pos, nspins)
   numer_value = jnp.zeros(nelecs)
   for i in range(nelecs):
@@ -817,7 +815,7 @@ def get_rho_generic(
         batch_atoms,
         charges,
     )
-    probs = probs_uhf(orb_matrices, nspins, i + 1, nelecs_minus_one_factorial)
+    probs = probs_uhf(orb_matrices, nspins, i + 1)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
