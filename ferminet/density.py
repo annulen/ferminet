@@ -717,8 +717,8 @@ def get_rho_all_zero(
   else:
     orb_pairs_iter = itertools.permutations(irange(nelec), nelec - 1)
     mos = eval_orbitals2(scf_approx, pos, nspins)
-    probs_fun = probs_Li_uhf
-  # probs_fun = probs_uhf
+    # probs_fun = probs_Li_uhf
+    probs_fun = probs_uhf
 
   # orb_pairs = tuple(orb_pairs_iter)
   # return f"{orb_pairs = }"
@@ -726,6 +726,7 @@ def get_rho_all_zero(
   nelec_minus_one_factorial = int_factorial(nelec - 1)
   numer_value = jnp.zeros(nelec)
   # nondiag = jnp.zeros(nelec)
+  # nondiag_std = jnp.zeros(nelec)
 
   el_numbers = range(nelec)
   for i in el_numbers:
@@ -740,13 +741,14 @@ def get_rho_all_zero(
     el_numbers_without_i = jnp.array([n + 1 for n in el_numbers if n != i])
     probs = probs_fun(mos, orb_pairs, el_numbers_without_i, nelec_minus_one_factorial)
     numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
-    # nondiag = nondiag.at[i].set(probs_Be_nondiag(mos, el_numbers_without_i))
+    # nondiag = nondiag.at[i].set(jnp.mean(probs_Be_nondiag(mos, el_numbers_without_i), axis=0))
+    # nondiag_std = nondiag_std.at[i].set(jnp.std(probs_Be_nondiag(mos, el_numbers_without_i), axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
   spin_rho = jnp.sum(numer_value) / denom_value
 
   return jnp.array([*numer_value, denom_value, spin_rho])
-  # return jnp.array([*nondiag, spin_rho])
+  # return jnp.array([*nondiag, *nondiag_std, spin_rho])
 
 
 
