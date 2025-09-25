@@ -25,7 +25,6 @@ import itertools
 import jax
 from jax import numpy as jnp
 import jax.scipy.special as jss
-import numpy as np
 
 
 def _eval_mos(pos: jnp.ndarray, scf_approx: scf.Scf,
@@ -672,6 +671,7 @@ def probs_Li_uhf(m: MOs, orb_pairs: NDArray, elecs: NDArray, nelec_minus_one_fac
     + 2 * probs_Li_nondiag(m, (1, 2), elecs)
   )
 
+
 def probs_uhf_Be(m: MOs, orb_permutations: NDArray, elecs: NDArray, nelec_minus_one_factorial: int):
   return (1 / nelec_minus_one_factorial) * (
       probs_sum_squares(m, orb_permutations, elecs)
@@ -685,6 +685,37 @@ def irange(stop: int):
 
 def int_factorial(x: int):
   return jnp.round(jss.factorial(x))
+
+
+def matrix_minor(m: NDArray, norb: int, nelec: int):
+  m1 = jnp.delete(m, nelec - 1, axis=-2, assume_unique_indices=True)
+  m2 = jnp.delete(m1, norb - 1, axis=-1, assume_unique_indices=True)
+  return jnp.linalg.det(m2)
+
+
+def probs_uhf(matrices: NDArray,
+              nspins: Tuple[int, int],
+              nelec: int,
+              nelecs_minus_one_factorial: int):
+  is_beta = nelec > nspins[0]
+  if is_beta:
+    matrix = matrices[1]
+    matrix_other = matrices[0]
+    n_in_matrix = nelec - nspins[0]
+    nelecs = nspins[1]
+  else:
+    matrix = matrices[0]
+    matrix_other = matrices[1]
+    n_in_matrix = nelec
+    nelecs = nspins[0]
+
+  matrix_other_det = jnp.linalg.det(matrix_other)
+
+  def f(norb: int):
+    return (matrix_minor(matrix, norb, n_in_matrix) * matrix_other_det) ** 2
+
+  minors = jax.vmap(f, in_axes=(0))(jnp.array(irange(nelecs)))
+  return (1 / nelecs_minus_one_factorial) * jnp.sum(minors, axis=0)
 
 
 def get_rho_all_zero(
@@ -750,6 +781,49 @@ def get_rho_all_zero(
   return jnp.array([*numer_value, denom_value, spin_rho])
   # return jnp.array([*nondiag, *nondiag_std, spin_rho])
 
+
+def get_rho_generic(
+    batch_network: networks.FermiNetLike,
+    params: networks.ParamTree,
+    dim: int,
+    pos: jnp.ndarray,
+    spins: jnp.ndarray,
+    charges: jnp.ndarray,
+    nspins: Tuple[int, int],
+    batch_atoms: jnp.ndarray,
+    scf_approx: scf.Scf,
+) -> jnp.ndarray:
+  if dim != 3:
+    raise ValueError('Only implemented for 3D systems')
+
+  _, psi_full_logs = batch_network(
+      params,
+      pos,
+      spins,
+      batch_atoms,
+      charges,
+  )
+
+  nelecs = nspins[0] + nspins[1]
+  nelecs_minus_one_factorial = 1 # int_factorial(nelecs - 1)
+  orb_matrices = scf_approx.eval_orbitals(pos, nspins)
+  numer_value = jnp.zeros(nelecs)
+  for i in range(nelecs):
+    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+    _, psi_zero_logs = batch_network(
+        params,
+        zeroed_pos,
+        spins,
+        batch_atoms,
+        charges,
+    )
+    probs = probs_uhf(orb_matrices, nspins, i + 1, nelecs_minus_one_factorial)
+    numer_value = numer_value.at[i].set(jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
+
+  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
+  spin_rho = jnp.sum(numer_value) / denom_value
+
+  return jnp.array([*numer_value, denom_value, spin_rho])
 
 
 # def eval_slater_square(
