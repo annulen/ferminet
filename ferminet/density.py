@@ -687,10 +687,10 @@ def int_factorial(x: int):
   return jnp.round(jss.factorial(x))
 
 
-def matrix_minor(m: NDArray, norb: int, nelec: int):
+def log_minor(m: NDArray, norb: int, nelec: int):
   m1 = jnp.delete(m, nelec - 1, axis=-2, assume_unique_indices=True)
   m2 = jnp.delete(m1, norb - 1, axis=-1, assume_unique_indices=True)
-  return jnp.linalg.det(m2)
+  return jnp.linalg.slogdet(m2)[1]
 
 
 def probs_uhf(matrices: NDArray,
@@ -708,10 +708,10 @@ def probs_uhf(matrices: NDArray,
     n_in_matrix = nelec
     nelecs = nspins[0]
 
-  matrix_other_det = jnp.linalg.det(matrix_other)
+  _, matrix_other_logdet = jnp.linalg.slogdet(matrix_other)
 
   def f(norb: int):
-    return (matrix_minor(matrix, norb, n_in_matrix) * matrix_other_det) ** 2
+    return jnp.exp(2 * (log_minor(matrix, norb, n_in_matrix) + matrix_other_logdet))
 
   minors = jax.vmap(f, in_axes=(0))(jnp.array(irange(nelecs)))
   return jnp.sum(minors, axis=0)
