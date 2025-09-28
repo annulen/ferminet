@@ -803,6 +803,49 @@ def get_rho_generic(
       charges,
   )
 
+  # ort_pos = jnp.array([
+  #   3, 0, 0,
+  #   3, 0, 0,
+  #   3, 0, 0,
+  #   # 0, 3, 0,
+  #   # 0, 0, 3,
+  # ]).repeat(2)
+
+  # return scf_approx.eval_slater(ort_pos, (3, 3))[1]
+  # # ort_orb_matrices = scf_approx.eval_orbitals(ort_pos, nspins) #(3, 0))
+  # ort_orb_matrices = scf_approx.eval_orbitals(ort_pos, (3, 3))
+  # # return ort_orb_matrices[0].flatten()
+  # # return jnp.concatenate((ort_orb_matrices[0].flatten(), ort_orb_matrices[1].flatten()))
+  # return jnp.concatenate((
+  #   ort_orb_matrices[0][0, :],
+  #   ort_orb_matrices[0][1, :],
+  #   ort_orb_matrices[0][2, :],
+  #   ort_orb_matrices[1][0, :],
+  #   ort_orb_matrices[1][1, :],
+  #   ort_orb_matrices[1][2, :]
+  #   ))
+  # return f"{ort_orb_matrices[0].shape = } {ort_orb_matrices[1].shape = }"
+
+  r = 1.8
+  ort_pos = jnp.array([
+      [r, 0, 0],
+      [0, r, 0],
+      [0, 0, r],
+  ])
+  ma, mb = scf_approx.eval_mos(ort_pos)
+  #return f"{ma.shape = }  {mb.shape = }"
+  def g(m, i, j):
+      return m.at[i, j].get(mode='fill', fill_value=jnp.nan)
+
+  return jnp.array([
+      g(ma, 0, 0), g(ma, 0, 1), g(ma, 0, 2),
+      g(ma, 1, 0), g(ma, 1, 1), g(ma, 1, 2),
+      g(ma, 2, 0), g(ma, 2, 1), g(ma, 2, 2),
+      g(mb, 0, 0), g(mb, 0, 1), g(mb, 0, 2),
+      g(mb, 1, 0), g(mb, 1, 1), g(mb, 1, 2),
+      g(mb, 2, 0), g(mb, 2, 1), g(mb, 2, 2),
+  ])
+
   nelecs = nspins[0] + nspins[1]
   orb_matrices = scf_approx.eval_orbitals(pos, nspins)
   numer_value = jnp.zeros(nelecs)
