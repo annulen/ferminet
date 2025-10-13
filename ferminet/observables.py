@@ -470,11 +470,12 @@ def make_kullback(
     signed_network: networks.FermiNetLike,
     cfg: ml_collections.ConfigDict,
 ) -> Observable:
+  nspins = cfg.system.electrons
   scf_approx = scf.Scf(
       molecule=cfg.system.molecule,
       restricted=False,
       # restricted=True,
-      nelectrons=cfg.system.electrons,
+      nelectrons=nspins,
       basis=cfg.observables.density_basis)
   scf_approx.run()
 
@@ -486,10 +487,11 @@ def make_kullback(
       # D = sum (batch) (P^2 * (log P - log Q))
       # P = slater
       # Q = signed_network
-      P = density.phi_log(data.positions, scf_approx, data.spins)
-      _, logQ = signed_network(params, data.positions, data.spins,
+      logP = density.phi_log(data.positions, scf_approx, nspins)
+      _, logQ = signed_network(params, data.positions, nspins,
                                data.atoms, data.charges)
-      D = P ** 2 * (jnp.log(P) - logQ)
-      return D
+      # D = jnp.exp(2 * logP) * jnp.abs(logP - logQ)
+      # return D
+      return (2*logP - 2*logQ) ** 2
 
   return kullback_estimator
