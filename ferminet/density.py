@@ -816,10 +816,11 @@ def get_rho_generic(
         charges,
     )
     probs = probs_uhf(orb_matrices, nspins, i + 1)
-    if i < nspins[0]:
-        sign = 1
-    else:
-        sign = -1
+    sign = 1
+    # if i < nspins[0]:
+    #     sign = 1
+    # else:
+    #     sign = -1
     numer_value = numer_value.at[i].set(sign * jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
   denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
