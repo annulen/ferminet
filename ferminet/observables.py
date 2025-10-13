@@ -464,3 +464,32 @@ def make_spin_rho(
         scf_approx)
 
   return spin_rho_estimator
+
+
+def make_kullback(
+    signed_network: networks.FermiNetLike,
+    cfg: ml_collections.ConfigDict,
+) -> Observable:
+  scf_approx = scf.Scf(
+      molecule=cfg.system.molecule,
+      restricted=False,
+      # restricted=True,
+      nelectrons=cfg.system.electrons,
+      basis=cfg.observables.density_basis)
+  scf_approx.run()
+
+  def kullback_estimator(
+      params: networks.ParamTree,
+      data: networks.FermiNetData,
+      state: None = None,
+  ) -> jnp.ndarray:
+      # D = sum (batch) (P^2 * (log P - log Q))
+      # P = slater
+      # Q = signed_network
+      P = density.phi_log(data.positions, scf_approx, data.spins)
+      _, logQ = signed_network(params, data.positions, data.spins,
+                               data.atoms, data.charges)
+      D = P ** 2 * (jnp.log(P) - logQ)
+      return D
+
+  return kullback_estimator

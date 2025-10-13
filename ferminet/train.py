@@ -796,7 +796,16 @@ def train(cfg: ml_collections.ConfigDict, writer_manager=None):
       return local_energy_and_s2, aux_data
     local_energy = local_energy_and_s2_fn
   else:
-    local_energy = local_energy_fn
+    local_kullback_fn = observables.make_kullback(
+        signed_network,
+        nspins=nspins,
+        states=cfg.system.states)
+    def local_energy_and_kullback_fn(params, keys, data):
+      local_energy, aux_data = local_energy_fn(params, keys, data)
+      assert cfg.system.states == 0, "Excited states not supported"
+      local_energy_and_kullback = local_energy + local_kullback_fn(params, data, None)
+      return local_energy_and_kullback, aux_data
+    local_energy = local_energy_and_kullback_fn
 
   if cfg.optim.objective == 'vmc':
     evaluate_loss = qmc_loss_functions.make_loss(
