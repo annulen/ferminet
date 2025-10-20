@@ -25,6 +25,8 @@ import itertools
 import jax
 from jax import numpy as jnp
 import jax.scipy.special as jss
+from jax.scipy.spatial.transform import Rotation
+import jax.scipy.optimize as jso
 
 
 def _eval_mos(pos: jnp.ndarray, scf_approx: scf.Scf,
@@ -416,6 +418,83 @@ def get_rho_2(
 def phi_log(positions: jnp.ndarray, scf_approx: scf.Scf, nspins: Tuple[int, int]):
   _, phi_log = scf_approx.eval_slater(positions, nspins)
   return phi_log
+
+
+def rotate_positions(angles: jnp.array, dim: int, pos: jnp.ndarray):
+  if dim != 3:
+    raise ValueError('Only implemented for 3D systems')
+
+  old_shape = pos.shape
+  pos = pos.reshape(-1, dim)
+  r = Rotation.from_euler('xyz', angles=angles)
+  return r.apply(pos).reshape(old_shape)
+
+
+def kullback_distance(
+  angles: jnp.array,
+  batch_network: networks.FermiNetLike,
+  params: networks.ParamTree,
+  dim: int,
+  pos_network: jnp.ndarray,
+  spins: jnp.ndarray,
+  charges: jnp.ndarray,
+  nspins: Tuple[int, int],
+  batch_atoms: jnp.ndarray,
+  scf_approx: scf.Scf,
+):
+  pos_hf = rotate_positions(angles, dim, pos_network)
+  logP = phi_log(pos_hf, scf_approx, nspins)
+  _, logQ = batch_network(
+      params,
+      pos_network,
+      spins,
+      batch_atoms,
+      charges,
+  )
+  return jnp.sum((2*logP - 2*logQ) ** 2, axis=0)
+
+
+def get_rho_generic_with_rotation(
+  batch_network: networks.FermiNetLike,
+  params: networks.ParamTree,
+  dim: int,
+  pos_network: jnp.ndarray,
+  spins: jnp.ndarray,
+  charges: jnp.ndarray,
+  nspins: Tuple[int, int],
+  batch_atoms: jnp.ndarray,
+  scf_approx: scf.Scf,
+):
+  angles_guess = jnp.zeros(3)  # Start from previous angles?
+  f = lambda angles: kullback_distance(
+    angles,
+    batch_network=batch_network,
+    params=params,
+    dim=dim,
+    pos_network=pos_network,
+    spins=spins,
+    charges=charges,
+    nspins=nspins,
+    batch_atoms=batch_atoms,
+    scf_approx=scf_approx
+  )
+  opt_result = jso.minimize(f, angles_guess, method='bfgs')
+  niter = opt_result.nit
+  success = opt_result.success
+  angles = opt_result.x
+  pos_hf = rotate_positions(angles, dim, pos_network)
+  res = get_rho_generic_impl(
+    batch_network=batch_network,
+    params=params,
+    dim=dim,
+    pos_network=pos_network,
+    pos_hf=pos_hf,
+    spins=spins,
+    charges=charges,
+    nspins=nspins,
+    batch_atoms=batch_atoms,
+    scf_approx=scf_approx)
+  return jnp.array([*res, *angles, niter, success])
 
 
 def get_rho_3(
