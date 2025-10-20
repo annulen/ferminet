@@ -75,41 +75,6 @@ def get_hf(molecule: Sequence[system.Atom] | None = None,
   return scf_approx
 
 
-def eval_orbitals(scf_approx: scf.Scf, pos: Union[np.ndarray, jnp.ndarray],
-                  nspins: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
-  """Evaluates SCF orbitals from PySCF at a set of positions.
-
-  Args:
-    scf_approx: an scf.Scf object that contains the result of a PySCF
-      calculation.
-    pos: an array of electron positions to evaluate the orbitals at, of shape
-      (..., nelec*3), where the leading dimensions are arbitrary, nelec is the
-      number of electrons and the spin up electrons are ordered before the spin
-      down electrons.
-    nspins: tuple with number of spin up and spin down electrons.
-
-  Returns:
-    tuple with matrices of orbitals for spin up and spin down electrons, with
-    the same leading dimensions as in pos.
-  """
-  if not isinstance(pos, np.ndarray):  # works even with JAX array
-    try:
-      pos = pos.copy()
-    except AttributeError as exc:
-      raise ValueError('Input must be either NumPy or JAX array.') from exc
-  leading_dims = pos.shape[:-1]
-  # split into separate electrons
-  pos = np.reshape(pos, [-1, 3])  # (batch*nelec, 3)
-  mos = scf_approx.eval_mos(pos)  # (batch*nelec, nbasis), (batch*nelec, nbasis)
-  # Reshape into (batch, nelec, nbasis) for each spin channel.
-  mos = [np.reshape(mo, leading_dims + (sum(nspins), -1)) for mo in mos]
-  # Return (using Aufbau principle) the matrices for the occupied alpha and
-  # beta orbitals. Number of alpha electrons given by nspins[0].
-  alpha_spin = mos[0][..., :nspins[0], :nspins[0]]
-  beta_spin = mos[1][..., nspins[0]:, :nspins[1]]
-  return alpha_spin, beta_spin
-
-
 def make_pretrain_step(
     batch_orbitals: networks.OrbitalFnLike,
     batch_network: networks.LogFermiNetLike,
