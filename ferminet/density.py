@@ -792,22 +792,46 @@ def get_rho_generic(
     batch_atoms: jnp.ndarray,
     scf_approx: scf.Scf,
 ) -> jnp.ndarray:
+  return get_rho_generic_impl(
+    batch_network=batch_network,
+    params=params,
+    dim=dim,
+    pos_network=pos,
+    pos_hf=pos,
+    spins=spins,
+    charges=charges,
+    nspins=nspins,
+    batch_atoms=batch_atoms,
+    scf_approx=scf_approx)
+
+def get_rho_generic_impl(
+    batch_network: networks.FermiNetLike,
+    params: networks.ParamTree,
+    dim: int,
+    pos_network: jnp.ndarray,
+    pos_hf: jnp.ndarray,
+    spins: jnp.ndarray,
+    charges: jnp.ndarray,
+    nspins: Tuple[int, int],
+    batch_atoms: jnp.ndarray,
+    scf_approx: scf.Scf,
+) -> jnp.ndarray:
   if dim != 3:
     raise ValueError('Only implemented for 3D systems')
 
   _, psi_full_logs = batch_network(
       params,
-      pos,
+      pos_network,
       spins,
       batch_atoms,
       charges,
   )
 
   nelecs = nspins[0] + nspins[1]
-  orb_matrices = scf_approx.eval_orbitals(pos, nspins)
+  orb_matrices = scf_approx.eval_orbitals(pos_hf, nspins)
   numer_value = jnp.zeros(nelecs)
   for i in range(nelecs):
-    zeroed_pos = pos.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
+    zeroed_pos = pos_network.at[..., dim*i:dim*(i+1)].set(jnp.zeros(dim))
     _, psi_zero_logs = batch_network(
         params,
         zeroed_pos,
@@ -823,7 +847,7 @@ def get_rho_generic(
     #     sign = -1
     numer_value = numer_value.at[i].set(sign * jnp.mean(jnp.exp(2 * psi_zero_logs) / probs, axis=0))
 
-  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos, scf_approx, nspins))), axis=0)
+  denom_value = jnp.mean(jnp.exp(2 * (psi_full_logs - phi_log(pos_hf, scf_approx, nspins))), axis=0)
   spin_rho = jnp.sum(numer_value) / denom_value
 
   return jnp.array([*numer_value, denom_value, spin_rho])
