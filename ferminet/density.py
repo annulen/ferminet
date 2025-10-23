@@ -27,6 +27,8 @@ from jax import numpy as jnp
 import jax.scipy.special as jss
 from jax.scipy.spatial.transform import Rotation
 import jax.scipy.optimize as jso
+# import optax
+import jaxopt
 
 
 def _eval_mos(pos: jnp.ndarray, scf_approx: scf.Scf,
@@ -420,6 +422,11 @@ def phi_log(positions: jnp.ndarray, scf_approx: scf.Scf, nspins: Tuple[int, int]
   return phi_log
 
 
+def wrap_radians(angle):
+    """Wrap an angle in radians to the range [-pi, pi)."""
+    return jnp.atan2(jnp.sin(angle), jnp.cos(angle))
+
+
 def rotate_positions(angles: jnp.array, dim: int, pos: jnp.ndarray):
   if dim != 3:
     raise ValueError('Only implemented for 3D systems')
@@ -451,7 +458,7 @@ def kullback_distance(
       batch_atoms,
       charges,
   )
-  return jnp.sum((2*logP - 2*logQ) ** 2, axis=0)
+  return jnp.mean((2*logP - 2*logQ) ** 2, axis=0)
 
 
 def get_rho_generic_with_rotation(
@@ -478,10 +485,16 @@ def get_rho_generic_with_rotation(
     batch_atoms=batch_atoms,
     scf_approx=scf_approx
   )
-  opt_result = jso.minimize(f, angles_guess, method='bfgs')
-  niter = opt_result.nit
-  success = opt_result.success
-  angles = opt_result.x
+  # solver = optax.sgd(learning_rate=0.003)
+  # opt = jaxopt.GradientDescent(fun=f, stepsize=0.001, maxiter=5000)  #, verbose=True)
+  opt = jaxopt.BFGS(fun=f, maxiter=50000, stepsize=0.0001)  #, verbose=True)
+  angles, state = opt.run(init_params=angles_guess)
+
+  # opt_result = jso.minimize(f, angles_guess, method='bfgs',
+  #                           options=dict(maxiter=1000, gtol=1e-2))
+  # niter = opt_result.nit
+  # status = opt_result.status
+  # angles = opt_result.x
   pos_hf = rotate_positions(angles, dim, pos_network)
   res = get_rho_generic_impl(
     batch_network=batch_network,
@@ -494,7 +507,10 @@ def get_rho_generic_with_rotation(
     nspins=nspins,
     batch_atoms=batch_atoms,
     scf_approx=scf_approx)
-  return jnp.array([*res, *angles, niter, success])
+  # return jnp.array([res[-1], *angles, f(angles), niter, opt_result.njev, status])
+  return jnp.array([res[-1], *angles, f(angles), *jnp.atleast_1d(state.iter_num),
+                     *jnp.atleast_1d(state.grad)
+                    ])
 
 
 def get_rho_3(
